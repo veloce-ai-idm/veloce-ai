@@ -20,7 +20,7 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | Feature | Description |
 |---------|-------------|
 | 🧠 **AI-Accelerated** | Learns your network patterns and adapts in real time. No manual tuning. |
-| 📡 **Media Capture** | Detects HLS, M3U8, and DASH streams automatically. Saves online media for offline access. |
+| 📡 **Media Capture** | Saves online media for offline access. |
 | 🌐 **Built-in Browser** | Full Chromium browser — no extensions, no switching, no setup. |
 | ⚡ **Multi-Connection Engine** | Up to 32 simultaneous connections for maximum throughput. |
 | 🔒 **Content Protection** | Industry-standard content protection compatibility. |
