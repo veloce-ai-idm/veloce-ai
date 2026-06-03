@@ -35,7 +35,7 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 ✅ All future updates included  
 ✅ Windows 10 & 11  
 ✅ 30-day money-back guarantee  
-✅ Up to 3 personal devices
+✅ 1 personal devices
 
 [Buy Now — $5](https://veloceidm.com)
 
