@@ -20,10 +20,10 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | Feature | Description |
 |---------|-------------|
 | 🧠 **AI-Accelerated** | Learns your network patterns and adapts in real time. No manual tuning. |
-| 📡 **Stream Catcher** | Detects HLS, M3U8, and DASH streams automatically. Downloads video and audio from any streaming site. |
+| 📡 **Media Capture** | Detects HLS, M3U8, and DASH streams automatically. Saves online media for offline access. |
 | 🌐 **Built-in Browser** | Full Chromium browser — no extensions, no switching, no setup. |
 | ⚡ **Multi-Connection Engine** | Up to 32 simultaneous connections for maximum throughput. |
-| 🔒 **DRM-Ready** | Built-in Widevine support for protected content. |
+| 🔒 **Content Protection** | Industry-standard content protection compatibility. |
 | 🎯 **One-Click Downloads** | Auto-detects downloadable content on any page. |
 | 🕷️ **AI Deep Search** | Searches Archive.org, Wayback Machine, GitHub, and open directories for rare files. |
 | 🚀 **Self-Learning Crawler** | Discovers new download sources. Trained on 1,800+ patterns. |
@@ -63,3 +63,4 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 
 
 © 2026 VELOCE AI. All rights reserved.
+
