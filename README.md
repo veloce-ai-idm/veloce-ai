@@ -7,6 +7,8 @@
 
 **Downloads, intelligently accelerated.** The modern alternative to outdated download managers.
 
+![VELOCE AI Screenshot](https://veloceidm.com/images/browsing.png)
+
 ---
 
 ## Why VELOCE AI?
