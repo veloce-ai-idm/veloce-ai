@@ -46,7 +46,7 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | AI acceleration | ✅ Real-time adaptation | ❌ Static logic |
 | Max connections | ✅ 32 | ❌ 8-16 |
 | Browser | ✅ Built-in Chromium | ❌ Extension only |
-| Streaming | ✅ HLS, M3U8, DASH, DRM | ❌ Limited |
+| Streaming | ✅ Automatically detects media content as you browse | ❌ Limited |
 | Deep Search | ✅ Archive.org, GitHub | ❌ None |
 | Price | ✅ $5 lifetime | ~$25 lifetime |
 | Refund | ✅ 30-day guarantee | Varies |
