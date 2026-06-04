@@ -7,7 +7,7 @@
 
 **Downloads, intelligently accelerated.** The modern alternative to outdated download managers.
 
-![VELOCE AI Screenshot](https://veloceidm.com/images/download-panel.png)
+![VELOCE AI Screenshot](https://veloceidm.com/images/browsing.png)
 
 ---
 
@@ -20,13 +20,13 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | Feature | Description |
 |---------|-------------|
 | 🧠 **AI-Accelerated** | Learns your network patterns and adapts in real time. No manual tuning. |
-| 📡 **Media Capture** | Saves online media for offline access. |
+| 📡 **Media Manager** | Download and organize web video and audio. Auto-detects downloadable content. |
 | 🌐 **Built-in Browser** | Full Chromium browser — no extensions, no switching, no setup. |
 | ⚡ **Multi-Connection Engine** | Up to 32 simultaneous connections for maximum throughput. |
-| 🔒 **Content Protection** | Industry-standard content protection compatibility. |
+| 🔒 **Format Compatibility** | Works with modern streaming protocols and media formats. |
 | 🎯 **One-Click Downloads** | Auto-detects downloadable content on any page. |
-| 🕷️ **AI Deep Search** | Searches Archive.org, Wayback Machine, GitHub, and open directories for rare files. |
-| 🚀 **Self-Learning Crawler** | Discovers new download sources. Trained on 1,800+ patterns. |
+| 🕷️ **AI File Finder** | Searches public archives, repositories, and open directories for rare files. |
+| 🚀 **Intelligent File Locator** | Discovers new download sources. Trained on 1,800+ patterns. |
 
 ## Pricing
 
@@ -46,8 +46,8 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | AI acceleration | ✅ Real-time adaptation | ❌ Static logic |
 | Max connections | ✅ 32 | ❌ 8-16 |
 | Browser | ✅ Built-in Chromium | ❌ Extension only |
-| Streaming | ✅ Automatically detects media content as you browse | ❌ Limited |
-| Deep Search | ✅ Archive.org, GitHub | ❌ None |
+| Media Downloads | ✅ Modern protocol support | ❌ Limited |
+| File Finder | ✅ Public archives, repos | ❌ None |
 | Price | ✅ $5 lifetime | ~$25 lifetime |
 | Refund | ✅ 30-day guarantee | Varies |
 
@@ -63,4 +63,3 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 
 
 © 2026 VELOCE AI. All rights reserved.
-
