@@ -20,13 +20,13 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | Feature | Description |
 |---------|-------------|
 | 🧠 **AI-Accelerated** | Learns your network patterns and adapts in real time. No manual tuning. |
-| 📡 **Media Manager** | Download and organize web video and audio. Auto-detects downloadable content. |
+| 📡 **Media Manager** | Download and organize web video and audio. Locally maps downloadable assets. |
 | 🌐 **Built-in Browser** | Full Chromium browser — no extensions, no switching, no setup. |
 | ⚡ **Multi-Connection Engine** | Up to 32 simultaneous connections for maximum throughput. |
 | 🔒 **Format Compatibility** | Works with modern streaming protocols and media formats. |
-| 🎯 **One-Click Downloads** | Auto-detects downloadable content on any page. |
-| 🕷️ **AI File Finder** | Searches public archives, repositories, and open directories for rare files. |
-| 🚀 **Intelligent File Locator** | Discovers new download sources. Trained on 1,800+ patterns. |
+| 🎯 **One-Click Downloads** | Locally maps downloadable content on any page for one-click access. |
+| 🔍 **AI File Finder** | Searches public archives, repositories, and indexed web repositories for rare files. |
+| 🚀 **Source Discovery Engine** | Discovers new download sources. Trained on 1,800+ patterns. |
 
 ## Pricing
 
