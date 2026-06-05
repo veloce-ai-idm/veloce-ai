@@ -8,7 +8,7 @@
 
 **Downloads, intelligently accelerated.** The modern alternative to outdated download managers.
 
-![VELOCE AI Screenshot](https://veloceidm.com/images/browsing.png)
+![VELOCE AI Screenshot](https://veloceidm.com/images/booster.png)
 
 ---
 
@@ -59,4 +59,4 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 ## Links
 
 - 🌐 [Website](https://veloceidm.com)
-- 📖 [User Guide](https://veloceidm
+- 📖 [User Guide](https://veloceidm.
