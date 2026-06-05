@@ -4,6 +4,7 @@
 [![Price](https://img.shields.io/badge/price-%245%20lifetime-brightgreen)](https://veloceidm.com)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)](https://veloceidm.com)
 [![License](https://img.shields.io/badge/license-Proprietary-orange)](https://veloceidm.com/terms.html)
+[![Trial](https://img.shields.io/badge/try%20free-3%20days-purple)](https://github.com/veloce-ai-idm/veloce-ai/releases)
 
 **Downloads, intelligently accelerated.** The modern alternative to outdated download managers.
 
@@ -58,10 +59,4 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 ## Links
 
 - 🌐 [Website](https://veloceidm.com)
-- 📖 [User Guide](https://veloceidm.com/guide/)
-- ⚖️ [VELOCE AI vs IDM](https://veloceidm.com/veloce-vs-idm/)
----
-
-
-
-© 2026 VELOCE AI. All rights reserved.
+- 📖 [User Guide](https://veloceidm
