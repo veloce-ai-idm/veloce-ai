@@ -1,7 +1,13 @@
 # veloce-ai
 # VELOCE AI — $5 AI-Powered Download Manager for Windows
 
-[![VT 0/65](https://img.shields.io/badge/VirusTotal-0%2F65%20clean-brightgreen)](https://www.virustotal.com/gui/file/027ea0c2dd9f3af0d66d6ce817bb62e4ea3e61f26fd65f5ea5bae908013ca594)
+<p align="center">
+  <a href="https://www.virustotal.com/gui/file/027ea0c2dd9f3af0d66d6ce817bb62e4ea3e61f26fd65f5ea5bae908013ca594">
+    <img src="https://img.shields.io/badge/VirusTotal-0%2F65%20detections%20%E2%80%94%20CLEAN-success?style=for-the-badge&logo=virustotal" alt="VirusTotal 0/65">
+  </a>
+</p>
+
+[![VT 0/65](https://img.shields.io/badge/VT-0%2F65-brightgreen)](https://www.virustotal.com/gui/file/027ea0c2dd9f3af0d66d6ce817bb62e4ea3e61f26fd65f5ea5bae908013ca594)
 [![Price](https://img.shields.io/badge/price-%245%20lifetime-brightgreen)](https://veloceidm.com)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-blue)](https://veloceidm.com)
 [![License](https://img.shields.io/badge/license-Proprietary-orange)](https://veloceidm.com/terms.html)
@@ -47,10 +53,5 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 
 | Feature | VELOCE AI | IDM |
 |---------|-----------|-----|
-| AI acceleration | ✅ Real-time adaptation | ❌ Static logic |
-| Max connections | ✅ 32 | ❌ 8-16 |
-| Browser | ✅ Built-in Chromium | ❌ Extension only |
-| Media Downloads | ✅ Modern format support | ❌ Limited |
-| File Finder | ✅ Public archives, repos | ❌ None |
-| Price | ✅ $5 lifetime | ~$25 lifetime |
+| AI accelera
 | 
