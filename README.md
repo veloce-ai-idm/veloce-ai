@@ -36,22 +36,17 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 | 🔍 **AI File Finder** | Searches public archives, repositories, and indexed web repositories for rare files. |
 | 🚀 **Source Discovery Engine** | Discovers new download sources. Trained on 1,800+ patterns. |
 
+## Requirements
+
+| Component | Requirement |
+|-----------|-------------|
+| 🖥️ **OS** | Windows 10 or 11 (64-bit) |
+| 🐍 **Python** | 3.12 or 3.13 *(optional — only needed for the crawler/source discovery engine)* |
+| 📦 **yt-dlp** | Bundled — no Python needed for downloads |
+| 🎬 **ffmpeg** | Bundled 8.0.1 — no manual install needed |
+
+> 💡 **Downloads work without Python.** The crawler engine uses CloakBrowser (bundled) but needs Python for pattern learning. Install [Python 3.12+](https://www.python.org/downloads/) if you want the AI file finder.
+
 ## Pricing
 
-**$5 — one-time payment. Lifetime license.** No subscriptions. No hidden fees.
-
-✅ All future updates included  
-✅ Windows 10 & 11  
-✅ 30-day money-back guarantee  
-✅ 1 personal device
-
-**[Try Free — 3 Days](https://github.com/veloce-ai-idm/veloce-ai/releases)** · [Buy Now — $5](https://veloceidm.com)
-
-> 🛡️ [Verified clean by 65+ vendors on VirusTotal — 0 detections](https://www.virustotal.com/gui/file/027ea0c2dd9f3af0d66d6ce817bb62e4ea3e61f26fd65f5ea5bae908013ca594)
-
-## vs IDM
-
-| Feature | VELOCE AI | IDM |
-|---------|-----------|-----|
-| AI accelera
-| 
+*
