@@ -42,8 +42,6 @@ Traditional download managers haven't changed in 25 years. VELOCE AI adapts to y
 |-----------|-------------|
 | 🖥️ **OS** | Windows 10 or 11 (64-bit) |
 | 🐍 **Python** | 3.12 or 3.13 *(optional — only needed for the crawler/source discovery engine)* |
-| 📦 **yt-dlp** | Bundled — no Python needed for downloads |
-| 🎬 **ffmpeg** | Bundled 8.0.1 — no manual install needed |
 
 > 💡 **Downloads work without Python.** The crawler engine uses CloakBrowser (bundled) but needs Python for pattern learning. Install [Python 3.12+](https://www.python.org/downloads/) if you want the AI file finder.
 
