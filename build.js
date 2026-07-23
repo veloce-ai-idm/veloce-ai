@@ -45,8 +45,8 @@ for (const f of APP_FILES) {
 }
 console.log('[build] copied ' + APP_FILES.length + ' readable files');
 
-// 3. Obfuscate renderer.js (license/trial UI logic) — low-risk settings
-const rendererSrc = fs.readFileSync(path.join(ROOT, 'renderer.js'), 'utf8');
+// 3. Obfuscate renderer.src.js → renderer.js (license/trial UI logic) — low-risk settings
+const rendererSrc = fs.readFileSync(path.join(ROOT, 'renderer.src.js'), 'utf8');
 const obf = JavaScriptObfuscator.obfuscate(rendererSrc, {
   compact: true,
   identifiersPrefix: 'a0_0x',
@@ -58,6 +58,11 @@ const obf = JavaScriptObfuscator.obfuscate(rendererSrc, {
 });
 fs.writeFileSync(path.join(STAGING, 'renderer.js'), obf.getObfuscatedCode());
 console.log('[build] renderer.js obfuscated');
+
+// Patch index.html to load renderer.js (obfuscated) instead of renderer.src.js (dev)
+const indexHtml = fs.readFileSync(path.join(STAGING, 'index.html'), 'utf8');
+fs.writeFileSync(path.join(STAGING, 'index.html'),
+  indexHtml.replace('renderer.src.js', 'renderer.js'));
 
 // 4. loader.js bootstrap (loads main.jsc, falls back to main.js if present)
 fs.writeFileSync(path.join(STAGING, 'loader.js'),
