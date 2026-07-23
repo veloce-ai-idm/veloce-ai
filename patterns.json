@@ -1,0 +1,36 @@
+{
+  "domains": {
+    "archive.org": {
+      "patterns": [],
+      "filesFound": 1192,
+      "pagesVisited": 2040
+    },
+    "sourceforge.net": {
+      "patterns": [],
+      "filesFound": 30,
+      "pagesVisited": 30
+    },
+    "github.com": {
+      "patterns": [],
+      "filesFound": 603,
+      "pagesVisited": 637
+    },
+    "www.python.org": {
+      "patterns": [],
+      "filesFound": 3,
+      "pagesVisited": 3
+    },
+    "golang.org": {
+      "patterns": [],
+      "filesFound": 20,
+      "pagesVisited": 20
+    }
+  },
+  "meta": {
+    "totalPatterns": 0,
+    "totalPages": 0,
+    "totalFiles": 0,
+    "startedAt": "2026-02-08T13:33:27.646Z",
+    "lastRun": "2026-05-31T13:27:48.555Z"
+  }
+}

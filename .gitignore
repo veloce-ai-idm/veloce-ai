@@ -1,0 +1,11 @@
+node_modules/
+build/
+build-staging/
+release/
+*.exe
+!ffmpeg.exe
+!yt-dlp.exe
+*.jsc
+.DS_Store
+cookies.txt
+veloce_cookie_debug.log

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://lsulbthkooxqsesgypak.supabase.co;">
+  <title>VELOCE AI IDM</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ── TOOLBAR ── -->
+  <div id="toolbar">
+
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-resume" title="Resume">▶ Resume</button>
+    <button class="tb-btn" id="btn-pause" title="Pause">⏸ Pause</button>
+    <button class="tb-btn" id="btn-resume-all" title="Resume All">⏩ Resume All</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-sniffer" title="Toggle Media Detection">📡 Detect</button>
+
+    <button class="tb-btn" id="btn-ai-search" title="AI Deep Search">🧠 AI Search</button>
+    <button class="tb-btn" id="btn-crawler" title="Self-Learning Crawler (Dev)">🕷 Crawler</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-delete" title="Delete">🗑 Delete</button>
+
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-profiles" title="Multi-profile browser (Bit-style)" style="display:none">🪟 Profiles</button>
+    <div class="tb-spacer"></div>
+    <button class="tb-btn" id="btn-settings" title="Settings">⚙ Settings</button>
+  </div>
+
+  <!-- ── PROFILE MODE (Bit-style): shown when Profiles button active ── -->
+  <div id="profile-mode-panel" style="display: none;">
+    <div class="profile-mode-header">
+      <span class="profile-mode-title">Profiles</span>
+      <button class="tb-btn" id="profile-add-btn">+ Add profile</button>
+    </div>
+    <div class="profile-mode-filter">
+      <input type="text" id="profile-filter" placeholder="Filter by name…">
+    </div>
+    <div class="profile-mode-table-wrap">
+      <table class="profile-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Group</th>
+            <th>Name</th>
+            <th>Proxy</th>
+            <th>Last opened</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="profile-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── TAB BAR ── -->
+  <div id="tab-bar">
+    <div id="tabs-container"></div>
+    <button id="btn-new-tab" title="New Tab">+</button>
+  </div>
+
+  <!-- ── NAV BAR ── -->
+  <div id="nav-bar">
+    <button class="nav-btn" id="btn-back" title="Back">◀</button>
+    <button class="nav-btn" id="btn-forward" title="Forward">▶</button>
+    <button class="nav-btn" id="btn-reload" title="Reload">⟳</button>
+    <input type="text" id="url-bar" placeholder="Search Google or type a URL…"
+           value="https://www.google.com">
+
+    <button class="nav-btn" id="btn-open-browser" title="Open in system browser (for Cloudflare sites)">🌐</button>
+    <button class="nav-btn" id="btn-hamburger" title="Browser Menu" style="font-size: 16px; position: relative;">☰</button>
+  </div>
+
+  <!-- Hamburger dropdown menu -->
+  <div id="hamburger-menu" style="
+    display: none; position: fixed; z-index: 99999;
+    background: linear-gradient(180deg, #1a2332, #0f172a);
+    border: 1px solid #2563eb; border-radius: 8px;
+    width: 220px; box-shadow: 0 10px 40px rgba(0,0,0,.6);
+    font-family: 'Segoe UI', Arial, sans-serif; color: #e0e0e0;
+    padding: 6px 0; font-size: 13px;
+  ">
+    <div class="hmenu-item" id="hmenu-history" style="padding: 8px 16px; cursor: pointer;">🕰️ History</div>
+<div class="hmenu-item" id="hmenu-bookmarks" style="padding: 8px 16px; cursor: pointer;">⭐ Bookmarks</div>
+<div style="border-top: 1px solid #334155; margin: 4px 0;"></div>
+<div class="hmenu-item" id="hmenu-zoom-in" style="padding: 8px 16px; cursor: pointer;">🔍+ Zoom In</div>
+<div class="hmenu-item" id="hmenu-zoom-out" style="padding: 8px 16px; cursor: pointer;">🔍- Zoom Out</div>
+<div class="hmenu-item" id="hmenu-zoom-reset" style="padding: 8px 16px; cursor: pointer;">🔍 Reset Zoom (100%)</div>
+<div style="border-top: 1px solid #334155; margin: 4px 0;"></div>
+<div class="hmenu-item" id="hmenu-clear-cache" style="padding: 8px 16px; cursor: pointer;">🧹 Clear Cache</div>
+<div class="hmenu-item" id="hmenu-clear-data" style="padding: 8px 16px; cursor: pointer; color: #f87171;">🗑️ Delete Browsing Data</div>
+<div style="border-top: 1px solid #334155; margin: 4px 0;"></div>
+<div class="hmenu-item" id="hmenu-settings" style="padding: 8px 16px; cursor: pointer;">⚙️ Settings</div>
+<div class="hmenu-item" id="hmenu-devtools" style="padding: 8px 16px; cursor: pointer;">🛠️ Developer Tools</div>
+</div>
+
+  <!-- ── BROWSER AREA ── -->
+    <div id="browser-area">
+    <!-- Webviews are created dynamically here -->
+
+    <!-- AI SEARCH PANEL (overlays browser area) -->
+    <div id="ai-search-panel" style="display: none;">
+      <div id="search-header">
+        <span class="search-title">🧠 Veloce AI Search</span>
+        <span class="search-subtitle">Deep search across Internet Archive, Wayback Machine, GitHub & more</span>
+        <button id="search-close" class="search-close-btn">×</button>
+      </div>
+      <div id="search-input-row">
+        <input type="text" id="search-input" placeholder="Search for old firmware, rare software, hidden files..."
+               autocomplete="off" spellcheck="false">
+        <button id="search-go" class="search-go-btn">Search</button>
+      </div>
+      <div id="search-status" style="display: none;"></div>
+      <div id="search-results"></div>
+    </div>
+
+    <!-- CHROME-STYLE SETTINGS PANEL -->
+    <div id="settings-panel" style="display: none;">
+      <div id="settings-sidebar">
+        <div class="settings-sidebar-header">
+          <span class="settings-sidebar-title">Settings</span>
+        </div>
+        <div class="settings-nav" id="settings-nav">
+          <div class="settings-nav-item active" data-page="downloads">
+            <span class="settings-nav-icon">⬇</span>
+            <span class="settings-nav-label">Downloads</span>
+          </div>
+          <div class="settings-nav-item" data-page="detection">
+            <span class="settings-nav-icon">📡</span>
+            <span class="settings-nav-label">Detection</span>
+          </div>
+          <div class="settings-nav-item" data-page="privacy">
+            <span class="settings-nav-icon">🔒</span>
+            <span class="settings-nav-label">Privacy & Security</span>
+          </div>
+          <div class="settings-nav-item" data-page="system">
+            <span class="settings-nav-icon">💻</span>
+            <span class="settings-nav-label">System</span>
+          </div>
+          <div class="settings-nav-sep"></div>
+          <div class="settings-nav-item" data-page="engine">
+            <span class="settings-nav-icon">⚡</span>
+            <span class="settings-nav-label">Veloce Engine</span>
+          </div>
+          <div class="settings-nav-item" data-page="about">
+            <span class="settings-nav-icon">ℹ️</span>
+            <span class="settings-nav-label">About Veloce</span>
+          </div>
+        </div>
+      </div>
+      <div id="settings-content">
+        <div class="settings-content-header">
+          <span id="settings-page-title">Downloads</span>
+          <button id="settings-close" class="settings-close-btn">×</button>
+        </div>
+
+        <!-- Downloads Page -->
+        <div class="settings-page active" id="page-downloads">
+          <div class="settings-card">
+            <div class="settings-section-title">Performance</div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">AI Tunnel Count</span>
+                <span class="settings-label-hint">More tunnels = faster downloads but higher chance of rate-limiting</span>
+              </div>
+              <div class="settings-control">
+                <div class="tunnel-selector" id="tunnel-selector">
+                  <button class="tunnel-opt" data-val="4">4</button>
+                  <button class="tunnel-opt" data-val="6">6</button>
+                  <button class="tunnel-opt" data-val="8">8</button>
+                  <button class="tunnel-opt active" data-val="10">10</button>
+                  <button class="tunnel-opt" data-val="12">12</button>
+                  <button class="tunnel-opt" data-val="14">14</button>
+                  <button class="tunnel-opt" data-val="16">16</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Direct Download Workers</span>
+                <span class="settings-label-hint">Parallel connections for non-HLS files (GGUF, ZIP, EXE, etc.)</span>
+              </div>
+              <div class="settings-control">
+                <div class="tunnel-selector" id="direct-worker-selector">
+                  <button class="tunnel-opt" data-val="4">4</button>
+                  <button class="tunnel-opt" data-val="8">8</button>
+                  <button class="tunnel-opt" data-val="12">12</button>
+                  <button class="tunnel-opt active" data-val="16">16</button>
+                  <button class="tunnel-opt" data-val="24">24</button>
+                  <button class="tunnel-opt" data-val="32">32</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Chunk Size</span>
+                <span class="settings-label-hint">Size of each download segment for direct files</span>
+              </div>
+              <div class="settings-control">
+                <div class="tunnel-selector" id="chunk-size-selector">
+                  <button class="tunnel-opt" data-val="0.5">0.5 MB</button>
+                  <button class="tunnel-opt" data-val="1">1 MB</button>
+                  <button class="tunnel-opt" data-val="2">2 MB</button>
+                  <button class="tunnel-opt active" data-val="5">5 MB</button>
+                  <button class="tunnel-opt" data-val="10">10 MB</button>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Max Retries per Segment</span>
+                <span class="settings-label-hint">How many times to retry a failed chunk before skipping</span>
+              </div>
+              <div class="settings-control">
+                <div class="tunnel-selector" id="retry-selector">
+                  <button class="tunnel-opt" data-val="3">3</button>
+                  <button class="tunnel-opt active" data-val="5">5</button>
+                  <button class="tunnel-opt" data-val="8">8</button>
+                  <button class="tunnel-opt" data-val="12">12</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="settings-section-title">Storage</div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Download Folder</span>
+                <span class="settings-label-hint" id="settings-dl-path">C:\Users\Downloads\VELOCE_AI</span>
+              </div>
+              <div class="settings-control">
+                <button class="settings-btn" id="settings-browse-folder">Browse</button>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Auto-remux .ts to .mp4</span>
+                <span class="settings-label-hint">Convert HLS streams to MP4 after download (requires FFmpeg)</span>
+              </div>
+              <div class="settings-control">
+                <label class="settings-toggle">
+                  <input type="checkbox" id="settings-remux" checked>
+                  <span class="settings-toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detection Page -->
+        <div class="settings-page" id="page-detection">
+          <div class="settings-card">
+            <div class="settings-section-title">Media Detection</div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Media Sniffer</span>
+                <span class="settings-label-hint">Auto-detect HLS/M3U8 streams and video URLs on web pages</span>
+              </div>
+              <div class="settings-control">
+                <label class="settings-toggle">
+                  <input type="checkbox" id="settings-sniffer" checked>
+                  <span class="settings-toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Sound on Complete</span>
+                <span class="settings-label-hint">Play notification sound when download finishes</span>
+              </div>
+              <div class="settings-control">
+                <label class="settings-toggle">
+                  <input type="checkbox" id="settings-sound" checked>
+                  <span class="settings-toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Privacy Page -->
+        <div class="settings-page" id="page-privacy">
+          <div class="settings-card">
+            <div class="settings-section-title">Privacy & Security</div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Clear Browsing Data</span>
+                <span class="settings-label-hint">Choose what to delete and how far back</span>
+              </div>
+              <div class="settings-control">
+                <button class="settings-btn" id="settings-clear-data">Clear Data...</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Page -->
+        <div class="settings-page" id="page-system">
+          <div class="settings-card">
+            <div class="settings-section-title">System</div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-label-text">Open at Login</span>
+                <span class="settings-label-hint">Start Veloce AI automatically when you log in</span>
+              </div>
+              <div class="settings-control">
+                <label class="settings-toggle">
+                  <input type="checkbox" id="settings-autostart">
+                  <span class="settings-toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Page -->
+        <div class="settings-page" id="page-engine">
+          <div class="settings-card">
+            <div class="settings-section-title">Veloce AI Engine</div>
+            <div class="settings-engine-info">
+              <div class="settings-engine-logo">VELOCE AI</div>
+              <div class="settings-engine-version">Engine v2.0 — Native Streaming</div>
+              <div class="settings-engine-stats" id="settings-engine-stats">
+                HLS Tunnels: 10 | Direct Workers: 16 | Chunk: 5 MB | Retries: 5
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About Page -->
+        <div class="settings-page" id="page-about">
+          <div class="settings-card">
+            <div class="settings-section-title">About Veloce AI IDM</div>
+            <div style="padding: 16px 0; color: #94a3b8; font-size: 13px; line-height: 1.7;">
+              <p style="margin-bottom: 12px;"><strong style="color: #e0e0e0;">Veloce AI IDM</strong> — The first AI-powered download manager.</p>
+              <p style="margin-bottom: 8px;">• AI Tunnel Pool with real-time health monitoring</p>
+              <p style="margin-bottom: 8px;">• Multi-connection segmented downloading (like IDM)</p>
+              <p style="margin-bottom: 8px;">• HLS/M3U8 stream detection with AES-128 decryption</p>
+              <p style="margin-bottom: 8px;">• Built-in Chromium browser with stealth fingerprinting</p>
+              <p style="margin-bottom: 8px;">• Self-learning crawler engine</p>
+              <p style="margin-bottom: 12px;">• AI-powered deep web search</p>
+              <p style="color: #64748b; font-size: 11px;">Version 2.0.0 — Electron + Node.js</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Native ad bar (after browser-area, CSS ~ selector requires sibling order) ── -->
+  <div id="native-ad-bar" style="display:none;justify-content:center;background:#f5f5f5;overflow:hidden;max-height:0;opacity:0;transition:max-height .4s,opacity .3s"><iframe src="ad-320x50.html" style="width:320px;height:50px;border:none;background:#f5f5f5" scrolling="no"></iframe></div>
+
+  <!-- ── Resize handle between browser and downloads ── -->
+  <div id="panel-resize-handle"></div>
+
+  <!-- ── DOWNLOAD PANEL ── -->
+  <div id="download-panel">
+    <div id="dl-header">
+      <span class="dl-title">Downloads</span>
+      <span class="dl-active" id="dl-active">Active: 0</span>
+    </div>
+    <table id="dl-table">
+      <thead>
+        <tr>
+          <th>File Name</th>
+          <th>Size</th>
+          <th>Status</th>
+          <th>Progress</th>
+          <th>Speed</th>
+          <th>ETA</th>
+          <th>Boosters</th>
+        </tr>
+      </thead>
+      <tbody id="dl-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- ── Profile modal (Add / Config) ── -->
+  <div id="profile-modal" class="profile-modal" style="display: none;">
+    <div class="profile-modal-inner">
+      <div class="profile-modal-header">
+        <span id="profile-modal-title">Add profile</span>
+        <button class="profile-modal-close" id="profile-modal-close">×</button>
+      </div>
+      <div class="profile-modal-body">
+        <div class="profile-form-row">
+          <label>Name</label>
+          <input type="text" id="profile-form-name" placeholder="Profile name">
+        </div>
+        <div class="profile-form-row">
+          <label>Group</label>
+          <input type="text" id="profile-form-group" placeholder="e.g. I">
+        </div>
+        <fieldset class="profile-form-section">
+          <legend>Proxy</legend>
+          <div class="profile-form-row">
+            <label>Type</label>
+            <select id="profile-form-proxy-type">
+              <option value="http">HTTP</option>
+              <option value="socks5">SOCKS5</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>Host</label>
+            <input type="text" id="profile-form-proxy-host" placeholder="e.g. 1.2.3.4">
+          </div>
+          <div class="profile-form-row">
+            <label>Port</label>
+            <input type="text" id="profile-form-proxy-port" placeholder="e.g. 8080">
+          </div>
+          <div class="profile-form-row">
+            <label>Username</label>
+            <input type="text" id="profile-form-proxy-user" placeholder="Optional">
+          </div>
+          <div class="profile-form-row">
+            <label>Password</label>
+            <input type="password" id="profile-form-proxy-pass" placeholder="Optional">
+          </div>
+          <div class="profile-form-row">
+            <button class="tb-btn" id="profile-form-check-proxy">Check proxy</button>
+            <span id="profile-form-proxy-result"></span>
+          </div>
+        </fieldset>
+        <fieldset class="profile-form-section">
+          <legend>Fingerprint</legend>
+          <div class="profile-form-row">
+            <label>User Agent</label>
+            <textarea id="profile-form-ua" rows="2" placeholder="Leave empty for default Chrome"></textarea>
+          </div>
+          <div class="profile-form-row">
+            <label>Timezone</label>
+            <input type="text" id="profile-form-timezone" placeholder="e.g. America/New_York">
+          </div>
+          <div class="profile-form-row">
+            <label>Language</label>
+            <input type="text" id="profile-form-language" placeholder="e.g. en-US">
+          </div>
+          <div class="profile-form-row">
+            <label>PC Type</label>
+            <select id="profile-form-pc-type">
+              <option value="i3-4">i3 — 4 GB</option>
+              <option value="i5-8">i5 — 8 GB</option>
+              <option value="i5-16">i5 — 16 GB</option>
+              <option value="i7-16">i7 — 16 GB</option>
+              <option value="i7-32" selected>i7 — 32 GB</option>
+              <option value="i9-32">i9 — 32 GB</option>
+              <option value="i9-64">i9 — 64 GB</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label>GPU Type</label>
+            <select id="profile-form-gpu-type">
+              <option value="intel-iris">Intel Iris Xe</option>
+              <option value="gtx1650">GTX 1650</option>
+              <option value="rtx3050">RTX 3050</option>
+              <option value="rtx4060" selected>RTX 4060</option>
+              <option value="rtx4070">RTX 4070</option>
+              <option value="rtx4080">RTX 4080</option>
+              <option value="rtx4090">RTX 4090</option>
+            </select>
+          </div>
+          <div class="profile-form-row">
+            <label><input type="checkbox" id="profile-form-ignore-https"> Ignore HTTPS errors</label>
+          </div>
+        </fieldset>
+      </div>
+      <div class="profile-modal-footer">
+        <button class="tb-btn" id="profile-modal-cancel">Cancel</button>
+        <button class="tb-btn active" id="profile-modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TRIAL BANNER ── -->
+  <div id="trial-banner" style="display:flex;position:fixed;bottom:28px;left:0;width:100%;height:32px;background:linear-gradient(90deg,#0ea5e9,#7c3aed);z-index:99998;flex-direction:row;align-items:center;justify-content:center;gap:16px;font-family:Arial,sans-serif;font-size:12px;color:#fff;font-weight:600;">
+    <span>🎉 Free Trial — <span id="trial-days">3</span> days left</span>
+    <a href="#" id="trial-buy-link" style="color:#fff;text-decoration:underline;font-weight:700;cursor:pointer;" onclick="event.preventDefault();(function(url){if(window.veloce&&window.veloce.openInBrowser){window.veloce.openInBrowser(url)}else{window.open(url,'_blank')}})('https://veloce.gumroad.com/l/ai-idm')">Buy License — $5</a>
+    <span style="color:rgba(255,255,255,0.5);">|</span>
+    <a href="#" id="trial-activate-link" style="color:rgba(255,255,255,0.8);text-decoration:underline;font-size:11px;cursor:pointer;" onclick="event.preventDefault();document.getElementById('license-overlay').style.display='flex'">Activate</a>
+    <span id="trial-msg" style="font-weight:400;font-size:11px;"></span>
+  </div>
+
+  <!-- ── LICENSE ACTIVATION OVERLAY ── -->
+  <div id="license-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(6,10,18,0.92);z-index:99999;flex-direction:column;align-items:center;justify-content:center;font-family:Arial,sans-serif;">
+    <div style="text-align:center;max-width:440px;">
+      <div style="font-family:'Orbitron',sans-serif;font-size:28px;font-weight:900;color:#e0e0e0;margin-bottom:6px;">VELOCE<span style="color:#0ea5e9;">AI</span></div>
+      <div style="color:#64748b;font-size:13px;margin-bottom:24px;">Enter your license key to activate</div>
+      <input id="license-input" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" style="width:100%;padding:12px 16px;background:#0f172a;border:1px solid #1e3a5f;border-radius:6px;color:#e0e0e0;font-size:15px;text-align:center;letter-spacing:1px;margin-bottom:12px;outline:none;box-sizing:border-box;">
+      <button id="license-activate-btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#0ea5e9,#7c3aed);border:none;border-radius:6px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;">Activate</button>
+      <div id="license-msg" style="margin-top:14px;font-size:13px;min-height:20px;"></div>
+    </div>
+  </div>
+
+  <!-- ── STATUS BAR ── -->
+  <div id="status-bar">
+    <span id="status-text">Ready</span>
+    <span id="sniffer-status" class="sniffer-off">Media Detect: OFF</span>
+  </div>
+
+  <!-- Hidden stubs required by renderer.js (Videos downloader features) -->
+  <div id="floating-popup" style="display:none;">
+    <button id="popup-close" style="display:none;"></button>
+    <button id="popup-dl-all" style="display:none;"></button>
+  </div>
+
+
+  <!-- ── Clear Browsing Data modal ── -->
+  <div id="clear-data-modal" class="clear-data-modal" style="display: none;">
+    <div class="clear-data-modal-inner">
+      <div class="clear-data-modal-header">
+        <span>Clear Browsing Data</span>
+        <button class="clear-data-modal-close" id="clear-data-modal-close">×</button>
+      </div>
+      <div class="clear-data-modal-body">
+        <div class="clear-data-section">
+          <label class="clear-data-label">Time range</label>
+          <select id="clear-data-time-range" class="clear-data-select">
+            <option value="1">Last hour</option>
+            <option value="24">Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+            <option value="672">Last 4 weeks</option>
+            <option value="0">All time</option>
+          </select>
+        </div>
+        <div class="clear-data-section">
+          <label class="clear-data-label">Data to delete</label>
+          <div class="clear-data-check-row">
+            <input type="checkbox" id="clear-opt-history" checked>
+            <label for="clear-opt-history">Browsing history</label>
+          </div>
+          <div class="clear-data-check-row">
+            <input type="checkbox" id="clear-opt-cookies" checked>
+            <label for="clear-opt-cookies">Cookies and site data</label>
+          </div>
+          <div class="clear-data-check-row">
+            <input type="checkbox" id="clear-opt-cache" checked>
+            <label for="clear-opt-cache">Cached images and files</label>
+          </div>
+          <div class="clear-data-check-row">
+            <input type="checkbox" id="clear-opt-storage">
+            <label for="clear-opt-storage">Local storage and IndexedDB</label>
+          </div>
+        </div>
+      </div>
+      <div class="clear-data-modal-footer">
+        <button class="tb-btn" id="clear-data-modal-cancel">Cancel</button>
+        <button class="tb-btn active" id="clear-data-modal-confirm">Clear Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── License & Trial logic (inline, independent of renderer.js) ── -->
+  <script>
+    (function() {
+      var LICENSE_FILE = ''; // not needed client-side, main process manages it
+
+      function $id(id) { return document.getElementById(id); }
+
+      function showOverlay() {
+        var ov = $id('license-overlay');
+        if (ov) ov.style.display = 'flex';
+      }
+
+      function hideOverlay() {
+        var ov = $id('license-overlay');
+        if (ov) ov.style.display = 'none';
+      }
+
+      function showTrial(daysLeft) {
+        var banner = $id('trial-banner');
+        var daysEl = $id('trial-days');
+        if (banner) banner.style.display = 'flex';
+        if (daysEl) daysEl.textContent = daysLeft;
+      }
+
+      function hideTrial() {
+        var banner = $id('trial-banner');
+        if (banner) banner.style.display = 'none';
+      }
+
+      function showMsg(text, isError) {
+        var msg = $id('license-msg');
+        if (msg) {
+          msg.textContent = text;
+          msg.style.color = isError ? '#ef4444' : '#22c55e';
+        }
+      }
+
+      // Wire Activate button
+      var activateBtn = $id('license-activate-btn');
+      if (activateBtn) {
+        activateBtn.addEventListener('click', async function() {
+          var input = $id('license-input');
+          if (!input || !input.value.trim()) {
+            showMsg('Please enter a license key', true);
+            return;
+          }
+          if (!window.veloce || !window.veloce.validateLicense) {
+            showMsg('License system not ready — restart the app', true);
+            return;
+          }
+          var result = await window.veloce.validateLicense(input.value.trim());
+          if (result && result.ok) {
+            showMsg('Activated! Restarting...', false);
+            setTimeout(function() { location.reload(); }, 1500);
+          } else {
+            showMsg((result && result.error) || 'Invalid license key', true);
+          }
+        });
+      }
+
+      // Wire trial links
+      var buyLink = $id('trial-buy-link');
+      if (buyLink) {
+        buyLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          window.veloce && window.veloce.openInBrowser && window.veloce.openInBrowser('https://veloce.gumroad.com/l/ai-idm');
+        });
+      }
+
+      var activateLink = $id('trial-activate-link');
+      if (activateLink) {
+        activateLink.addEventListener('click', function(e) {
+          e.preventDefault();
+          showOverlay();
+        });
+      }
+
+      // Startup check: license first, then trial
+      async function checkLicense() {
+        if (!window.veloce) { setTimeout(checkLicense, 200); return; }
+        if (typeof window.veloce.getLicense !== 'function') { setTimeout(checkLicense, 200); return; }
+
+        console.log('[License] Checking activation...');
+
+        try {
+          var savedKey = await window.veloce.getLicense();
+          console.log('[License] getLicense result:', savedKey);
+          if (savedKey) { console.log('[License] Already activated, hiding UI'); hideTrial(); hideOverlay(); return; }
+        } catch (e) { console.log('[License] getLicense error:', e.message); }
+
+        console.log('[License] No license, checking trial...');
+        try {
+          var trial = await window.veloce.checkTrial();
+          console.log('[License] checkTrial result:', JSON.stringify(trial));
+          if (trial && trial.trial && trial.days_left > 0) {
+            console.log('[License] Showing trial banner, days:', trial.days_left);
+            showTrial(trial.days_left);
+            return;
+          }
+          console.log('[License] Trial not available');
+        } catch (e) { console.log('[License] checkTrial error:', e.message); }
+
+        // No license, no trial — show activation
+        console.log('[License] Showing activation overlay');
+        hideTrial();
+        showOverlay();
+      }
+
+      // Poll for preload readiness, then check
+      var pollCount = 0;
+      function pollForVeloce() {
+        pollCount++;
+        if (window.veloce && typeof window.veloce.getLicense === 'function') {
+          console.log('[License] preload ready after', pollCount * 100, 'ms');
+          checkLicense();
+        } else if (pollCount < 50) {
+          setTimeout(pollForVeloce, 100);
+        } else {
+          console.log('[License] preload never ready, showing overlay');
+          showOverlay();
+        }
+      }
+      setTimeout(pollForVeloce, 300);
+    })();
+  </script>
+  <script src="renderer.js"></script>
+</body>
+</html>

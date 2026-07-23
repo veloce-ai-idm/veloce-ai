@@ -1,0 +1,30 @@
+appId: com.veloce.ai.idm
+productName: VELOCE AI IDM
+copyright: Copyright © 2026 Veloce AI
+
+directories:
+  app: build-staging
+  output: release
+
+asar: true
+
+win:
+  icon: assets/icon.ico
+  target: nsis
+
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+# yt-dlp standalone binary + ffmpeg + helper — OUTSIDE the asar,
+# resolved at runtime via process.resourcesPath (this is what makes
+# yt-dlp work on any PC with no Python installed)
+extraResources:
+  - from: yt-dlp.exe
+    to: yt-dlp.exe
+  - from: ffmpeg.exe
+    to: ffmpeg.exe
+  - from: ytdlp_helper.py
+    to: ytdlp_helper.py

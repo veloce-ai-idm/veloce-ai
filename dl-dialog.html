@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Download File Info</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Rajdhani', 'Segoe UI', Arial, sans-serif;
+      background: radial-gradient(ellipse at 10% -10%, rgba(19,196,255,0.08), transparent 60%),
+        linear-gradient(180deg, #070b12 0%, #05070c 100%);
+      color: #d7e7ff;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-app-region: no-drag;
+      font-size: 12.5px;
+    }
+    /* ── Header (drag handle) ── */
+    #header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(14,165,233,0.3), rgba(6,95,70,0.4));
+      border-bottom: 1px solid rgba(79,209,255,0.45);
+      cursor: move;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    #header span {
+      font-family: 'Orbitron', 'Rajdhani', sans-serif;
+      color: #7dd3fc; font-weight: 700; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+    #header button {
+      -webkit-app-region: no-drag;
+      background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #7f1d1d;
+      border-radius: 4px; width: 24px; height: 24px; font-size: 14px;
+      cursor: pointer; line-height: 1; transition: all 0.15s;
+    }
+    #header button:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+
+    /* ── Body ── */
+    #body { padding: 12px 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    td { padding: 3px 6px; }
+    .label { color: #64748b; width: 100px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .val { color: #c8d6e5; font-weight: 600; word-break: break-all; }
+    .val-url { color: #475569; font-size: 10px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .val-size { color: #22c55e; font-weight: 700; font-size: 13px; text-shadow: 0 0 6px rgba(34,197,94,0.4); }
+    .val-resume-yes { color: #22c55e; font-weight: 600; }
+    .val-resume-no { color: #ef4444; font-weight: 600; }
+
+    /* ── Status ── */
+    .status-waiting { color: #eab308; text-shadow: 0 0 6px rgba(234,179,8,0.3); }
+    .status-downloading { color: #22c55e; text-shadow: 0 0 6px rgba(34,197,94,0.4); }
+    .status-cancelled { color: #ef4444; text-shadow: 0 0 6px rgba(239,68,68,0.4); }
+    .status-complete { color: #0ea5e9; text-shadow: 0 0 6px rgba(14,165,233,0.4); }
+
+    /* ── Safety ── */
+    #safety-section {
+      margin: 8px 0; padding: 8px 10px;
+      background: rgba(10,16,25,0.8); border: 1px solid rgba(79,209,255,0.2);
+      border-radius: 6px; font-size: 11px;
+    }
+    #safety-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    #safety-header .title {
+      font-family: 'Orbitron', sans-serif;
+      color: #0ea5e9; font-weight: 700; font-size: 9px;
+      text-transform: uppercase; letter-spacing: 2px;
+    }
+    #safety-spinner { color: #475569; font-size: 10px; }
+
+    /* ── Progress ── */
+    #progress-section { display: none; margin: 10px 0 4px; }
+    #progress-bar-wrap {
+      background: #0a1628; border: 1px solid #1e3a5f;
+      border-radius: 4px; height: 16px; overflow: hidden;
+    }
+    #progress-bar {
+      background: linear-gradient(90deg, #22c55e, #16a34a);
+      height: 100%; width: 0%; transition: width 0.3s ease;
+      border-radius: 3px;
+      box-shadow: 0 0 8px rgba(34,197,94,0.3);
+    }
+    #percent { text-align: center; font-size: 10px; margin-top: 2px; color: #64748b; font-weight: 600; }
+
+    /* ── Tunnel Dashboard (matching original Veloce style) ── */
+    #tunnel-dashboard {
+      display: none; margin: 8px 0; padding: 8px 10px;
+      background: #060a12; border: 1px solid #1e3a5f;
+      border-radius: 6px;
+    }
+    .td-title {
+      font-family: 'Orbitron', 'Rajdhani', sans-serif;
+      font-size: 9px; color: #0ea5e9; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 2px;
+      margin-bottom: 6px;
+      text-shadow: 0 0 6px rgba(14,165,233,0.3);
+    }
+    .td-row { display: flex; align-items: center; height: 13px; margin-bottom: 2px; }
+    .td-label {
+      width: 22px; font-family: 'Orbitron', 'Consolas', monospace;
+      font-size: 8px; color: #334155; font-weight: 700;
+      text-align: right; margin-right: 5px; flex-shrink: 0;
+    }
+    .td-bar { flex: 1; display: flex; gap: 1px; height: 9px; align-items: center; }
+    .td-block {
+      width: 100%; height: 100%; background: #0f1d32;
+      border-radius: 1px; transition: background 0.15s;
+    }
+    .td-block.lit-1 { background: #1d4ed8; box-shadow: 0 0 4px rgba(29,78,216,0.5); }
+    .td-block.lit-2 { background: #2563eb; box-shadow: 0 0 4px rgba(37,99,235,0.5); }
+    .td-block.lit-3 { background: #0ea5e9; box-shadow: 0 0 4px rgba(14,165,233,0.5); }
+    .td-block.lit-4 { background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,0.5); }
+    .td-block.lit-5 { background: #84cc16; box-shadow: 0 0 4px rgba(132,204,22,0.5); }
+    .td-block.lit-6 { background: #eab308; box-shadow: 0 0 4px rgba(234,179,8,0.5); }
+    .td-block.lit-7 { background: #f97316; box-shadow: 0 0 4px rgba(249,115,22,0.5); }
+    .td-block.lit-8 { background: #ef4444; box-shadow: 0 0 5px rgba(239,68,68,0.6); }
+    .td-block.dead { background: #450a0a; box-shadow: 0 0 2px rgba(127,29,29,0.4); }
+    .td-block.idle { background: #0f1d32; }
+    .td-speed {
+      width: 55px; font-family: 'Orbitron', 'Consolas', monospace;
+      font-size: 8px; color: #475569; text-align: right;
+      margin-left: 5px; flex-shrink: 0; white-space: nowrap;
+    }
+    .td-speed.fast { color: #22c55e; text-shadow: 0 0 4px rgba(34,197,94,0.4); }
+    .td-speed.medium { color: #eab308; text-shadow: 0 0 4px rgba(234,179,8,0.3); }
+    .td-speed.slow { color: #ef4444; text-shadow: 0 0 4px rgba(239,68,68,0.3); }
+    .td-summary {
+      display: flex; justify-content: space-between; margin-top: 5px;
+      padding-top: 4px; border-top: 1px solid #0f1d32;
+      font-size: 9px; font-weight: 600;
+    }
+    .td-summary .online { color: #22c55e; }
+    .td-summary .total-speed { color: #0ea5e9; }
+
+    /* ── Buttons ── */
+    #buttons { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+    .btn-start {
+      background: linear-gradient(180deg, #22c55e 0%, #15803d 100%);
+      color: #fff; border: 1px solid #4ade80; border-radius: 6px;
+      padding: 8px 22px; font-size: 12px; font-weight: 700; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s;
+    }
+    .btn-start:hover { box-shadow: 0 0 12px rgba(34,197,94,0.4); }
+    .btn-later {
+      background: rgba(18,28,44,0.9); color: #9fdcff; border: 1px solid rgba(72,153,199,0.45);
+      border-radius: 6px; padding: 8px 22px; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s; letter-spacing: 0.5px;
+    }
+    .btn-later:hover { background: rgba(24,40,62,0.95); border-color: rgba(96,204,255,0.8); }
+    #stop-wrap { display: none; text-align: center; margin-top: 10px; }
+    .btn-stop {
+      background: linear-gradient(180deg, #dc2626 0%, #991b1b 100%);
+      color: #fff; border: 1px solid #f87171; border-radius: 6px;
+      padding: 8px 28px; font-size: 12px; font-weight: 700; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s;
+    }
+    .btn-stop:hover { box-shadow: 0 0 12px rgba(239,68,68,0.4); }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <span>Download File Info</span>
+    <button id="btn-close" title="Close">×</button>
+  </div>
+  <div id="body">
+    <table>
+      <tr><td class="label">File name</td><td class="val" id="d-filename">—</td></tr>
+      <tr><td class="label">URL</td><td class="val-url" id="d-url">—</td></tr>
+      <tr><td class="label">File size</td><td class="val-size" id="d-size">Checking...</td></tr>
+      <tr><td class="label">Resume</td><td id="d-resume" class="val-resume-yes">Yes</td></tr>
+      <tr><td class="label">Status</td><td id="d-status" class="status-waiting">Waiting...</td></tr>
+    </table>
+
+    <table id="progress-table" style="display:none;">
+      <tr><td class="label">Downloaded</td><td class="val" id="d-received">0 MB</td></tr>
+      <tr><td class="label">Transfer rate</td><td class="val" id="d-speed">—</td></tr>
+      <tr><td class="label">Time left</td><td class="val" id="d-eta">—</td></tr>
+    </table>
+
+    <div id="safety-section">
+      <div id="safety-header">
+        <span class="title">SAFETY CHECK</span>
+        <span id="safety-spinner">scanning...</span>
+      </div>
+      <div id="safety-checks"></div>
+      <div id="safety-overall" style="display:none;"></div>
+    </div>
+
+    <div id="progress-section">
+      <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+      <div id="percent">0%</div>
+    </div>
+
+    <div id="tunnel-dashboard"></div>
+
+    <div id="buttons">
+      <button class="btn-start" id="btn-start">Start Download</button>
+      <button class="btn-later" id="btn-later">Download Later</button>
+    </div>
+    <div id="stop-wrap">
+      <button class="btn-stop" id="btn-stop">⏹ Stop Download</button>
+    </div>
+  </div>
+
+  <script>
+    var phase = 'info';
+    var TUNNEL_BLOCKS = 16;
+    var tunnelCount = 0;
+    var tunnelDashInit = false;
+
+    document.getElementById('btn-close').onclick = function() {
+      if (phase === 'progress') window.dlDialog.stopDownload();
+      window.dlDialog.cancelDownload();
+    };
+
+    document.getElementById('btn-start').onclick = function() {
+      phase = 'progress';
+      document.getElementById('buttons').style.display = 'none';
+      document.getElementById('safety-section').style.display = 'none';
+      document.getElementById('progress-section').style.display = 'block';
+      document.getElementById('progress-table').style.display = '';
+      document.getElementById('stop-wrap').style.display = 'block';
+      document.getElementById('d-status').textContent = 'Receiving data...';
+      document.getElementById('d-status').className = 'status-downloading';
+      tunnelDashInit = false;
+      window.dlDialog.startDownload();
+    };
+
+    document.getElementById('btn-later').onclick = function() {
+      window.dlDialog.cancelDownload();
+    };
+
+    document.getElementById('btn-stop').onclick = function() {
+      window.dlDialog.stopDownload();
+      document.getElementById('d-status').textContent = 'Cancelled';
+      document.getElementById('d-status').className = 'status-cancelled';
+      document.getElementById('stop-wrap').style.display = 'none';
+    };
+
+    // Receive updates
+    window.dlDialog.onUpdate(function(data) {
+      if (data.filename) document.getElementById('d-filename').textContent = data.filename;
+      if (data.url) {
+        var u = data.url.length > 60 ? data.url.slice(0, 60) + '...' : data.url;
+        document.getElementById('d-url').textContent = u;
+        document.getElementById('d-url').title = data.url;
+      }
+      if (data.size) document.getElementById('d-size').textContent = data.size;
+      if (data.resumable !== undefined) {
+        var el = document.getElementById('d-resume');
+        el.textContent = data.resumable ? 'Yes' : 'No';
+        el.className = data.resumable ? 'val-resume-yes' : 'val-resume-no';
+      }
+      if (data.status) {
+        var st = document.getElementById('d-status');
+        st.textContent = data.status;
+        if (data.status === 'Cancelled') st.className = 'status-cancelled';
+        else if (data.status === 'Complete') st.className = 'status-complete';
+        else st.className = 'status-downloading';
+      }
+      if (data.received) document.getElementById('d-received').textContent = data.received;
+      if (data.speed) document.getElementById('d-speed').textContent = data.speed;
+      if (data.eta) document.getElementById('d-eta').textContent = data.eta;
+      if (data.percent !== undefined) {
+        document.getElementById('progress-bar').style.width = data.percent + '%';
+        document.getElementById('percent').textContent = data.percent + '%';
+      }
+      if (data.tunnelSpeeds && data.tunnelSpeeds.length > 0) {
+        renderTunnelDashboard(data.tunnelSpeeds);
+      }
+    });
+
+    window.dlDialog.onSafety(function(data) {
+      document.getElementById('safety-spinner').textContent = data.done ? '' : 'scanning...';
+      if (data.checks) {
+        var html = '';
+        data.checks.forEach(function(c) {
+          var color = c.pass ? '#22c55e' : '#ef4444';
+          var icon = c.pass ? '✓' : '✗';
+          html += '<div style="display:flex;gap:6px;align-items:center;padding:1px 0;"><span style="color:'+color+';font-size:10px;">'+icon+'</span><span style="color:#94a3b8;font-size:10px;">'+c.label+'</span></div>';
+        });
+        document.getElementById('safety-checks').innerHTML = html;
+      }
+      if (data.overall) {
+        var ov = document.getElementById('safety-overall');
+        ov.style.display = 'block';
+        ov.style.color = data.overall.safe ? '#22c55e' : '#ef4444';
+        ov.style.fontSize = '11px';
+        ov.style.fontWeight = '700';
+        ov.style.marginTop = '4px';
+        ov.textContent = data.overall.text;
+      }
+    });
+
+    function renderTunnelDashboard(speeds) {
+      var dash = document.getElementById('tunnel-dashboard');
+      var count = speeds.length;
+
+      if (!tunnelDashInit || tunnelCount !== count) {
+        tunnelDashInit = true;
+        tunnelCount = count;
+        dash.style.display = 'block';
+        var html = '<div class="td-title">VELOCE BOOSTER ENGINE</div>';
+        for (var i = 0; i < count; i++) {
+          html += '<div class="td-row" id="td-row-'+i+'">';
+          html += '<span class="td-label">B'+(i+1)+'</span>';
+          html += '<div class="td-bar">';
+          for (var b = 0; b < TUNNEL_BLOCKS; b++) {
+            html += '<div class="td-block idle" id="td-'+i+'-'+b+'"></div>';
+          }
+          html += '</div>';
+          html += '<span class="td-speed" id="td-spd-'+i+'">—</span>';
+          html += '</div>';
+        }
+        html += '<div class="td-summary"><span class="online" id="td-online">Online: 0</span><span class="total-speed" id="td-total-speed">0 KB/s</span></div>';
+        dash.innerHTML = html;
+      }
+
+      var totalSpeed = 0, online = 0;
+      for (var i = 0; i < count; i++) {
+      var entry = speeds[i] || {};
+        var spd = (typeof entry === 'number') ? entry : (entry.speed || 0);
+        totalSpeed += spd;
+        if (spd > 0) online++;
+
+        // Speed label
+        var kbs = (spd / 1024).toFixed(0);
+        var spdEl = document.getElementById('td-spd-'+i);
+        if (spdEl) {
+          spdEl.textContent = kbs + ' KB/s';
+          spdEl.className = 'td-speed ' + (spd > 500000 ? 'fast' : spd > 100000 ? 'medium' : spd > 0 ? 'slow' : '');
+        }
+
+        // Light up blocks - scale: each block = ~62.5KB/s, so 1MB/s fills all 16
+        var level = spd <= 0 ? 0 : Math.min(Math.ceil(spd / 62500), TUNNEL_BLOCKS);
+        for (var b = 0; b < TUNNEL_BLOCKS; b++) {
+          var bl = document.getElementById('td-'+i+'-'+b);
+          if (!bl) continue;
+          if (b < level) {
+            // Color gradient: blue -> cyan -> green -> yellow -> orange -> red
+            var pct = (b + 1) / TUNNEL_BLOCKS;
+            var lit = Math.min(Math.ceil(pct * 8), 8);
+            bl.className = 'td-block lit-' + lit;
+          } else {
+            bl.className = 'td-block idle';
+          }
+        }
+      }
+
+      var onEl = document.getElementById('td-online');
+      if (onEl) onEl.textContent = 'Online: ' + online;
+      var tsEl = document.getElementById('td-total-speed');
+      if (tsEl) {
+        if (totalSpeed > 1048576) {
+          tsEl.textContent = (totalSpeed / 1048576).toFixed(1) + ' MB/s';
+        } else {
+          tsEl.textContent = (totalSpeed / 1024).toFixed(0) + ' KB/s';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

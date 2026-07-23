@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Browser Settings</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa; /* Light theme like Brave */
+      color: #334155;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 240px;
+      background-color: #ffffff;
+      border-right: 1px solid #e2e8f0;
+      padding: 20px 0;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-title {
+      font-size: 20px;
+      font-weight: 600;
+      padding: 0 20px 20px 20px;
+      color: #e11d48; /* Brave-like brand color */
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .nav-item {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #475569;
+      transition: background 0.1s, color 0.1s;
+    }
+    
+    .nav-item:hover {
+      background-color: #f1f5f9;
+    }
+    
+    .nav-item.active {
+      background-color: #fff1f2;
+      color: #be123c;
+      font-weight: 600;
+      border-right: 3px solid #be123c;
+    }
+    
+    .nav-icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* ── Main Content ── */
+    #content-area {
+      flex: 1;
+      padding: 40px 60px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+      position: relative;
+    }
+    
+    .search-bar {
+      position: sticky;
+      top: 0;
+      background: #ffffff;
+      padding: 10px 20px;
+      border-radius: 24px;
+      border: 1px solid #cbd5e1;
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto 40px auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      z-index: 10;
+    }
+    
+    .search-bar input {
+      border: none;
+      outline: none;
+      width: 100%;
+      font-size: 15px;
+      color: #334155;
+    }
+    
+    .section {
+      max-width: 680px;
+      margin: 0 auto 40px auto;
+    }
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 16px;
+    }
+    
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    
+    .card-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    
+    .card-row:last-child {
+      border-bottom: none;
+    }
+    
+    .card-row:hover {
+      background: #f8fafc;
+    }
+    
+    .card-label {
+      font-size: 14px;
+      color: #334155;
+    }
+    
+    .card-sublabel {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    
+    .card-icon-right {
+      color: #94a3b8;
+      font-size: 16px;
+    }
+
+    .btn {
+      background: #e11d48;
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .btn:hover {
+      background: #be123c;
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+    }
+    
+    .btn-danger:hover {
+      background: #dc2626;
+    }
+    
+    .alert {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Dark Mode Support (Veloce Aesthetic toggle) */
+    body.dark-mode {
+      background-color: #0f172a;
+      color: #e2e8f0;
+    }
+    body.dark-mode #sidebar {
+      background-color: #1e293b;
+      border-right-color: #334155;
+    }
+    body.dark-mode .nav-item { color: #cbd5e1; }
+    body.dark-mode .nav-item:hover { background-color: #334155; }
+    body.dark-mode .nav-item.active { background-color: #0f172a; color: #38bdf8; border-right-color: #38bdf8; }
+    body.dark-mode .sidebar-title { color: #38bdf8; }
+    body.dark-mode #content-area { background-color: #0f172a; }
+    body.dark-mode .search-bar { background-color: #1e293b; border-color: #334155; }
+    body.dark-mode .search-bar input { background-color: transparent; color: #f8fafc; }
+    body.dark-mode .section-title { color: #f8fafc; }
+    body.dark-mode .card { background-color: #1e293b; border-color: #334155; }
+    body.dark-mode .card-row { border-bottom-color: #334155; }
+    body.dark-mode .card-row:hover { background-color: #2a384e; }
+    body.dark-mode .card-label { color: #e2e8f0; }
+    body.dark-mode .btn { background-color: #0ea5e9; }
+    body.dark-mode .btn:hover { background-color: #0284c7; }
+  </style>
+</head>
+<body class="dark-mode">
+
+  <div id="sidebar">
+    <div class="sidebar-title">
+      <span style="font-size: 24px;">⚙️</span> Settings
+    </div>
+    <div class="nav-item active">
+      <span class="nav-icon">👤</span> Get started
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🛡️</span> Privacy and security
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🎨</span> Appearance
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🔍</span> Search engine
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">⬇️</span> Downloads
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">🧩</span> Extensions
+    </div>
+    <div class="nav-item">
+      <span class="nav-icon">ℹ️</span> About Veloce
+    </div>
+  </div>
+
+  <div id="content-area">
+    <div class="search-bar">
+      <span>🔍</span>
+      <input type="text" placeholder="Search settings">
+    </div>
+    
+    <div id="alert-box" class="alert alert-success"></div>
+
+    <div class="section" id="sec-get-started">
+      <div class="section-title">Get started</div>
+      <div class="card">
+        <div class="card-row">
+          <div>
+            <div class="card-label">Profile name and icon</div>
+            <div class="card-sublabel">Manage your browser profile</div>
+          </div>
+          <span class="card-icon-right">▶</span>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">Import bookmarks and settings</div>
+          </div>
+          <span class="card-icon-right">▶</span>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">On startup</div>
+            <div class="card-sublabel">Continue where you left off</div>
+          </div>
+          <span class="card-icon-right">▶</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-privacy">
+      <div class="section-title">Privacy and security</div>
+      <div class="card">
+        <div class="card-row">
+          <div>
+            <div class="card-label">Clear browsing data</div>
+            <div class="card-sublabel">Clear history, cookies, cache, and more</div>
+          </div>
+          <button class="btn btn-danger" id="btn-clear-data">Clear data</button>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">Clear cached files</div>
+            <div class="card-sublabel">Free up disk space by removing temporary files</div>
+          </div>
+          <button class="btn" id="btn-clear-cache">Clear cache</button>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">Cookies and other site data</div>
+            <div class="card-sublabel">Block third-party cookies</div>
+          </div>
+          <span class="card-icon-right">▶</span>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">Security</div>
+            <div class="card-sublabel">Safe Browsing (protection from dangerous sites)</div>
+          </div>
+          <span class="card-icon-right">▶</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="sec-appearance">
+      <div class="section-title">Appearance</div>
+      <div class="card">
+        <div class="card-row">
+          <div>
+            <div class="card-label">Theme</div>
+            <div class="card-sublabel" id="theme-sub">Dark mode is active</div>
+          </div>
+          <button class="btn" id="btn-toggle-theme">Toggle Light/Dark</button>
+        </div>
+        <div class="card-row">
+          <div>
+            <div class="card-label">Show bookmarks bar</div>
+          </div>
+          <input type="checkbox" checked>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Access the parent window's IPC bridge since this is loaded in an iframe
+    const veloceAPI = window.parent.veloce || window.veloce;
+    
+    function showAlert(msg) {
+      const box = document.getElementById('alert-box');
+      box.textContent = msg;
+      box.style.display = 'block';
+      setTimeout(() => { box.style.display = 'none'; }, 3000);
+    }
+
+    document.getElementById('btn-clear-cache').onclick = function() {
+      if (veloceAPI && veloceAPI.clearCache) {
+        veloceAPI.clearCache().then(() => {
+          showAlert('Cache cleared successfully!');
+        }).catch(err => {
+          showAlert('Error clearing cache: ' + err.message);
+        });
+      } else {
+        showAlert('API not connected.');
+      }
+    };
+
+    document.getElementById('btn-clear-data').onclick = function() {
+      if (confirm('Are you sure you want to delete all browsing data? You will be signed out of most sites.')) {
+        if (veloceAPI && veloceAPI.clearBrowsingData) {
+          veloceAPI.clearBrowsingData().then(() => {
+            showAlert('Browsing data deleted successfully!');
+          }).catch(err => {
+            showAlert('Error deleting data: ' + err.message);
+          });
+        } else {
+          showAlert('API not connected.');
+        }
+      }
+    };
+
+    document.getElementById('btn-toggle-theme').onclick = function() {
+      const body = document.body;
+      if (body.classList.contains('dark-mode')) {
+        body.classList.remove('dark-mode');
+        document.getElementById('theme-sub').textContent = 'Light mode is active';
+      } else {
+        body.classList.add('dark-mode');
+        document.getElementById('theme-sub').textContent = 'Dark mode is active';
+      }
+    };
+
+    // Simple scroll spy for navigation
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems[0].onclick = () => document.getElementById('sec-get-started').scrollIntoView({behavior: 'smooth'});
+    navItems[1].onclick = () => document.getElementById('sec-privacy').scrollIntoView({behavior: 'smooth'});
+    navItems[2].onclick = () => document.getElementById('sec-appearance').scrollIntoView({behavior: 'smooth'});
+    
+  </script>
+</body>
+</html>

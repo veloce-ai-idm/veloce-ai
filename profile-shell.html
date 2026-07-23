@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile Browser</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #060a12; color: #c8d6e5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    #tab-bar { display: flex; align-items: flex-end; background: #080e1a; padding: 0 6px; min-height: 36px; border-bottom: 1px solid #1e3a5f; flex-shrink: 0; }
+    #tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; }
+    .tab { display: flex; align-items: center; gap: 6px; background: #0c1220; color: #64748b; border: 1px solid #1e293b; border-bottom: none; border-radius: 6px 6px 0 0; padding: 6px 12px; min-width: 100px; max-width: 180px; cursor: pointer; font-size: 12px; }
+    .tab:hover { background: #141c2e; color: #94a3b8; }
+    .tab.active { background: #060a12; color: #7dd3fc; border-color: #0ea5e9; }
+    .tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tab-close { background: none; border: none; color: #475569; cursor: pointer; font-size: 14px; padding: 0 2px; border-radius: 3px; }
+    .tab-close:hover { background: #dc2626; color: #fff; }
+    #btn-new-tab { background: #0c1220; color: #0ea5e9; border: 1px solid #1e3a5f; border-radius: 4px; font-size: 16px; font-weight: bold; width: 28px; height: 28px; cursor: pointer; margin-left: 4px; margin-bottom: 2px; }
+    #btn-new-tab:hover { background: #1e3a5f; color: #fff; }
+    #webview-area { flex: 1; position: relative; min-height: 400px; }
+    #webview-area webview { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #fff; }
+    #webview-area webview.active { display: block; }
+  </style>
+</head>
+<body>
+  <div id="tab-bar">
+    <div id="tabs"></div>
+    <button id="btn-new-tab" title="New tab">+</button>
+  </div>
+  <div id="webview-area"></div>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      window.__profilePartition = window.__profilePartition || params.get('partition') || '';
+      window.__profileStartUrl = window.__profileStartUrl || params.get('startUrl') || 'https://www.google.com';
+      var partition = window.__profilePartition;
+      var startUrl = window.__profileStartUrl;
+
+      var tabs = [];
+      var activeId = null;
+      var tabsEl = document.getElementById('tabs');
+      var areaEl = document.getElementById('webview-area');
+
+      window.__startProfileTabs = function() {
+        var p = window.__profilePartition || partition;
+        var u = window.__profileStartUrl || startUrl || 'https://www.google.com';
+        if (!p) { document.body.innerHTML = '<p style="padding:2em;color:#f59e0b;">Missing partition.</p>'; return; }
+        partition = p;
+        startUrl = u;
+        createTab(startUrl, true);
+      };
+
+      function createTab(url, switchTo) {
+        var p = partition || window.__profilePartition;
+        if (!p) return;
+        var id = 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+        var webview = document.createElement('webview');
+        webview.setAttribute('partition', p);
+        webview.setAttribute('src', url || 'https://www.google.com');
+        webview.setAttribute('data-tab-id', id);
+        webview.setAttribute('allowpopups', '');
+        webview.setAttribute('webpreferences', 'javascript=yes');
+        /* Session already has setPreloads(stealth-preload); do not set preload here or path can break webview load */
+
+        var tabEl = document.createElement('div');
+        tabEl.className = 'tab';
+        tabEl.setAttribute('data-tab-id', id);
+        var titleSpan = document.createElement('span');
+        titleSpan.className = 'tab-title';
+        titleSpan.textContent = 'New Tab';
+        var closeBtn = document.createElement('button');
+        closeBtn.className = 'tab-close';
+        closeBtn.textContent = '×';
+        closeBtn.onclick = function(e) { e.stopPropagation(); closeTab(id); };
+
+        tabEl.appendChild(titleSpan);
+        tabEl.appendChild(closeBtn);
+        tabEl.onclick = function() { switchToTab(id); };
+
+        tabsEl.appendChild(tabEl);
+        areaEl.appendChild(webview);
+
+        webview.addEventListener('page-title-updated', function(e) {
+          titleSpan.textContent = e.title && e.title.length > 25 ? e.title.slice(0, 25) + '…' : (e.title || 'New Tab');
+        });
+        webview.addEventListener('new-window', function(e) { createTab(e.url); });
+
+        tabs.push({ id: id, webview: webview, tabEl: tabEl, titleSpan: titleSpan });
+        if (switchTo !== false) switchToTab(id);
+        return id;
+      }
+
+      function switchToTab(id) {
+        activeId = id;
+        tabs.forEach(function(t) {
+          if (t.id === id) {
+            t.webview.classList.add('active');
+            t.tabEl.classList.add('active');
+          } else {
+            t.webview.classList.remove('active');
+            t.tabEl.classList.remove('active');
+          }
+        });
+      }
+
+      function closeTab(id) {
+        var idx = tabs.findIndex(function(t) { return t.id === id; });
+        if (idx === -1) return;
+        if (tabs.length <= 1) {
+          createTab('https://www.google.com');
+        }
+        var t = tabs[idx];
+        t.tabEl.remove();
+        t.webview.remove();
+        tabs.splice(idx, 1);
+        if (activeId === id && tabs.length > 0) {
+          switchToTab(tabs[Math.min(idx, tabs.length - 1)].id);
+        }
+      }
+
+      document.getElementById('btn-new-tab').onclick = function() { createTab('https://www.google.com'); };
+
+      if (partition) createTab(startUrl, true);
+      else window.__startProfileTabsReady = true;
+    })();
+  </script>
+</body>
+</html>
