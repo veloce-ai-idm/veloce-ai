@@ -10,8 +10,8 @@
     "build": "node build.js"
   },
   "dependencies": {
-    "cloakbrowser": "^0.3.30",
-    "playwright-core": "^1.52.0",
+    "cloakbrowser": "^0.4.1",
+    "playwright-core": "^1.61.0",
     "socks": "^2.8.3"
   },
   "devDependencies": {
@@ -19,5 +19,32 @@
     "electron": "34.5.8",
     "electron-builder": "^26.15.3",
     "javascript-obfuscator": "^5.5.0"
+  },
+  "build": {
+    "appId": "com.veloce.ai.idm",
+    "productName": "VELOCE AI IDM",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VELOCE AI"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/.cache/**",
+      "!renderer.src.js",
+      "!compile.js",
+      "!*.music-backup"
+    ],
+    "extraResources": [
+      { "from": "ffmpeg.exe", "to": "ffmpeg.exe" },
+      { "from": "yt-dlp.exe", "to": "yt-dlp.exe" },
+      { "from": "ytdlp_helper.py", "to": "ytdlp_helper.py" }
+    ]
   }
 }

@@ -568,16 +568,16 @@
         if (ov) ov.style.display = 'none';
       }
 
+      function hideBanner() {
+        var banner = $id('trial-banner');
+        if (banner) banner.style.display = 'none';
+      }
+
       function showTrial(daysLeft) {
         var banner = $id('trial-banner');
         var daysEl = $id('trial-days');
         if (banner) banner.style.display = 'flex';
         if (daysEl) daysEl.textContent = daysLeft;
-      }
-
-      function hideTrial() {
-        var banner = $id('trial-banner');
-        if (banner) banner.style.display = 'none';
       }
 
       function showMsg(text, isError) {
@@ -638,7 +638,7 @@
         try {
           var savedKey = await window.veloce.getLicense();
           console.log('[License] getLicense result:', savedKey);
-          if (savedKey) { console.log('[License] Already activated, hiding UI'); hideTrial(); hideOverlay(); return; }
+          if (savedKey) { console.log('[License] Already activated, hiding banner'); hideBanner(); return; }
         } catch (e) { console.log('[License] getLicense error:', e.message); }
 
         console.log('[License] No license, checking trial...');
@@ -655,7 +655,6 @@
 
         // No license, no trial — show activation
         console.log('[License] Showing activation overlay');
-        hideTrial();
         showOverlay();
       }
 

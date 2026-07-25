@@ -1690,6 +1690,7 @@ function setupBrowserSession() {
             folder: path.dirname(finalPath),
             size: totalSize > 0 ? (totalSize / 1048576).toFixed(1) + ' MB' : '—',
             status: 'Complete',
+            complete: true,
           });
         }
       } else {
@@ -2364,6 +2365,7 @@ ipcMain.handle('start-download', async function(event, data) {
           path: finalPath,
           folder: path.dirname(finalPath),
           size: finalMb + ' MB',
+          complete: true,
         });
       }
 
@@ -2471,6 +2473,7 @@ ipcMain.handle('start-download', async function(event, data) {
           path: outPath,
           folder: path.dirname(outPath),
           size: dlSize,
+          complete: true,
         });
       }
       return { success: true, path: outPath, filename: safeName, size: dlSize };
@@ -2877,6 +2880,9 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
     });
 
     proc.on('close', function(code) {
+      // Detach after cancel: tracking data was already deleted by cancel handler.
+      // Check BEFORE we delete — cancel handler removes _ytdlpDirs first.
+      var wasCancelled = !_ytdlpDirs[ytDlpId];
       delete _ytdlpProcs[ytDlpId];
       delete _ytdlpDirs[ytDlpId];
       delete _ytdlpSafeNames[ytDlpId];
@@ -2898,12 +2904,13 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
       if (code === 0 || (fileExists && fileSize > 0)) {
         var sizeStr = fileSize > 1048576 ? (fileSize / 1048576).toFixed(1) + ' MB' : (fileSize / 1024).toFixed(0) + ' KB';
 
-        if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow && !mainWindow.isDestroyed() && !wasCancelled) {
           mainWindow.webContents.send('download-complete', {
             filename: safeName,
             path: outputFile,
             folder: downloadsDir,
             size: sizeStr,
+            complete: true,
           });
         }
 
