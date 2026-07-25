@@ -583,6 +583,8 @@ function checkSmartVideoDetection(_0x5327ab) {
 
 // ── YouTube native format extraction — reads ytInitialPlayerResponse from page DOM ──
 // No yt-dlp, no external requests, no bot detection. Works like IDM: reads what the browser already has.
+// Track auto-refresh so we only do it once per detection
+var _ytAutoRefreshed = {};
 function detectYouTubeFormats(url) {
   var activeTab = tabs.find(function(t) { return t.id === activeTabId; });
   if (!activeTab || !activeTab.webview) {
@@ -643,6 +645,14 @@ function detectYouTubeFormats(url) {
     ).then(function(result) {
       smartDetectionActive = false;
       if (!result) {
+        var _cleanUrl2 = url.split("?")[0];
+        if (!_ytAutoRefreshed[_cleanUrl2]) {
+          _ytAutoRefreshed[_cleanUrl2] = true;
+          smartDetectionActive = false;
+          statusText.textContent = "Loading YouTube player data...";
+          setTimeout(function() { activeTab.webview.reload(); }, 300);
+          return;
+        }
         statusText.textContent = "No YouTube player data found — try refreshing the page";
         return;
       }
@@ -654,6 +664,16 @@ function detectYouTubeFormats(url) {
       }
 
       if (playerData.error) {
+        // First load often doesn't have the player response in DOM yet.
+        // Auto-refresh once — after reload the data is always available.
+        var _cleanUrl = url.split("?")[0];
+        if (!_ytAutoRefreshed[_cleanUrl]) {
+          _ytAutoRefreshed[_cleanUrl] = true;
+          smartDetectionActive = false;
+          statusText.textContent = "Loading YouTube player data...";
+          setTimeout(function() { activeTab.webview.reload(); }, 300);
+          return;
+        }
         statusText.textContent = "YouTube detection error: " + playerData.error;
         return;
       }
