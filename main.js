@@ -1003,6 +1003,7 @@ function streamSegment(url, startOffset, endByte, fd, stallTimeout, onData) {
           'Accept': '*/*',
           'Accept-Encoding': 'identity',
           'Connection': 'keep-alive',
+          'Referer': url.indexOf('googlevideo.com') !== -1 ? 'https://www.youtube.com/' : '',
         },
         agent: parsed.protocol === 'https:' ? httpsAgent : httpAgent,
       }, function(res) {
@@ -2393,12 +2394,35 @@ ipcMain.handle('start-download', async function(event, data) {
     }
   }
 
+  // ── Route 3a: YouTube googlevideo.com — use browser session (raw HTTP gets 403) ──
+  if (url.indexOf('googlevideo.com') !== -1 && browserSession) {
+    console.log('[Veloce YT] Browser-session download: ' + url.slice(0, 80));
+    try {
+      var ytData = await fetchWithBrowser(url);
+      fs.writeFileSync(outPath, ytData);
+      var ytSize = (ytData.length / 1048576).toFixed(1) + ' MB';
+      console.log('[Veloce YT] Complete: ' + safeName + ' (' + ytSize + ')');
+      delete activeDownloads[urlKey];
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('download-complete', {
+          filename: safeName, path: outPath, folder: downloadsDir,
+          size: ytSize, complete: true,
+        });
+      }
+      return { success: true, path: outPath, filename: safeName, size: ytSize };
+    } catch (e) {
+      console.log('[Veloce YT] Browser download failed: ' + e.message + ' — falling back to boosters');
+    }
+  }
+
   // ── Route 3: Direct file download (16 boosters when server supports ranges) ──
   console.log('[Veloce] Direct download: ' + url.slice(0, 80));
   var outPath = path.join(downloadsDir, safeName);
   try {
     var headResult = await new Promise(function(resolve) {
       var req = net.request({ method: 'HEAD', url: url, session: browserSession || session.defaultSession });
+      if (referer) req.setHeader('Referer', referer);
+      req.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       req.on('response', function(res) {
         var cl = res.headers['content-length'];
         var size = cl ? parseInt(Array.isArray(cl) ? cl[0] : cl) : 0;
@@ -2982,6 +3006,25 @@ ipcMain.handle('ytdlp-cancel-format', function(event, ytDlpId) {
 
   return { ok: true };
 });
+
+// Debug
+ipcMain.handle('yt-debug', function(event, msg) { console.log('[YT DEBUG] ' + msg); return true; });
+
+// ── IPC: YouTube direct download via browser webContents.downloadURL() ──
+// Uses the browser session YouTube already trusts — no yt-dlp, no bot detection.
+// The will-download handler on browserSession catches it automatically.
+ipcMain.handle('youtube-direct-download', function(event, webContentsId, url) {
+  try {
+    var wc = require('electron').webContents.fromId(webContentsId);
+    if (!wc) return { ok: false, error: 'WebContents not found' };
+    wc.downloadURL(url);
+    console.log('[Veloce YT] Browser download triggered: ' + url.slice(0, 80));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 // ── IPC: Check file size (HEAD request) before downloading ──
 ipcMain.handle('check-size', async function(event, url) {
   if (!isValidUrl(url)) return { size: 0, type: '', resumable: false };

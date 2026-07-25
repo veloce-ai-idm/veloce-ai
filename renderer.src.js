@@ -601,13 +601,26 @@ function detectYouTubeFormats(url) {
     '135': { label: '480p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
     '136': { label: '720p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
     '137': { label: '1080p', ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '394': { label: '144p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '395': { label: '240p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '396': { label: '360p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '397': { label: '480p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '398': { label: '720p',  ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '399': { label: '1080p', ext: 'mp4', hasVideo: true,  hasAudio: false },
+    '242': { label: '240p',  ext: 'webm', hasVideo: true,  hasAudio: false },
+    '243': { label: '360p',  ext: 'webm', hasVideo: true,  hasAudio: false },
+    '244': { label: '480p',  ext: 'webm', hasVideo: true,  hasAudio: false },
     '247': { label: '720p',  ext: 'webm', hasVideo: true,  hasAudio: false },
     '248': { label: '1080p', ext: 'webm', hasVideo: true,  hasAudio: false },
     '298': { label: '720p60', ext: 'mp4', hasVideo: true,  hasAudio: false },
     '299': { label: '1080p60', ext: 'mp4', hasVideo: true,  hasAudio: false },
     '139': { label: '48k',   ext: 'm4a', hasVideo: false, hasAudio: true  },
     '140': { label: '128k',  ext: 'm4a', hasVideo: false, hasAudio: true  },
+    '160': { label: '144k',  ext: 'm4a', hasVideo: false, hasAudio: true  },
+    '249': { label: '50k',   ext: 'webm', hasVideo: false, hasAudio: true  },
+    '250': { label: '70k',   ext: 'webm', hasVideo: false, hasAudio: true  },
     '251': { label: '160k',  ext: 'webm', hasVideo: false, hasAudio: true  },
+    '278': { label: '360p',  ext: 'webm', hasVideo: true,  hasAudio: false },
   };
 
   try {
@@ -667,9 +680,12 @@ function detectYouTubeFormats(url) {
         seen[mapped.label] = true;
 
         var cl = parseInt(f.contentLength) || 0;
+        var hasUrl = !!f.url;
+        var hasCipher = !!f.signatureCipher;
         cleanFormats.push({
           id: itag,
           label: mapped.label,
+          _hasUrl: hasUrl, _hasCipher: hasCipher,
           ext: mapped.ext,
           height: mapped.hasVideo ? parseInt(mapped.label) || 0 : 0,
           fps: mapped.label.indexOf('60') !== -1 ? 60 : 0,
@@ -710,53 +726,23 @@ function detectYouTubeFormats(url) {
         pageUrl: url,
       };
 
-      // Store direct URLs for download
-      var _ytUrls = {};
+      // Store direct URLs globally so click handlers can access them
+      window._youtubeDirectUrls = {};
       for (var yi = 0; yi < videoFormats.length; yi++) {
-        if (videoFormats[yi].directUrl) _ytUrls[videoFormats[yi].label] = { url: videoFormats[yi].directUrl, ext: videoFormats[yi].ext };
+        if (videoFormats[yi].directUrl) window._youtubeDirectUrls[videoFormats[yi].label] = { url: videoFormats[yi].directUrl, ext: videoFormats[yi].ext };
       }
       for (var yj = 0; yj < audioFormats.length; yj++) {
-        if (audioFormats[yj].directUrl) _ytUrls[audioFormats[yj].label] = { url: audioFormats[yj].directUrl, ext: audioFormats[yj].ext };
+        if (audioFormats[yj].directUrl) window._youtubeDirectUrls[audioFormats[yj].label] = { url: audioFormats[yj].directUrl, ext: audioFormats[yj].ext };
       }
       currentVideoInfo = info;
       statusText.textContent = '✓ Video found: ' + info.title.slice(0, 60);
       showSmartPopup(info);
 
-      // Re-wire download buttons for YouTube: use direct URLs instead of yt-dlp
-      setTimeout(function() {
-        smartPopup.querySelectorAll('.smart-dl-btn').forEach(function(btn) {
-          var row = btn.closest('.smart-fmt-row');
-          var formatId = row ? row.getAttribute('data-format-id') : null;
-          var ytUrl = _ytUrls[formatId];
-          if (!ytUrl) return; // not a YouTube format, leave original handler
-          // Replace with direct download handler
-          btn.onclick = function(ev) {
-            ev.stopPropagation();
-            btn.textContent = '⏳...';
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
-            var filename = info.title.replace(/[<>:"/\\|?*]/g, '').slice(0, 60) + '.' + ytUrl.ext;
-            var isAudio = row && row.getAttribute('data-audio') === 'true';
-            if (isAudio) filename = info.title.replace(/[<>:"/\\|?*]/g, '').slice(0, 60) + '.m4a';
-            window.veloce.startDownload(ytUrl.url, filename, url, info.title).then(function(r) {
-              if (r && r.ok) {
-                statusText.textContent = '✓ Download started: ' + filename;
-                btn.textContent = '✓';
-              } else {
-                statusText.textContent = 'Download failed: ' + ((r && r.error) || 'unknown');
-                btn.textContent = '↻ Retry';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-              }
-            }).catch(function(e) {
-              statusText.textContent = 'Download error: ' + e.message;
-              btn.textContent = '↻ Retry';
-              btn.disabled = false;
-              btn.style.opacity = '1';
-            });
-          };
-        });
-      }, 100);
+      // Store direct URLs globally — the popup's existing click handler
+      // checks window._youtubeDirectUrls before calling yt-dlp.
+      if (window.veloce && window.veloce.ytDebug) {
+        window.veloce.ytDebug(JSON.stringify({ stored: Object.keys(window._youtubeDirectUrls), formats: cleanFormats.slice(0,8).map(function(f){ return {id:f.id,label:f.label,u:!!f._hasUrl,c:!!f._hasCipher,du:!!f.directUrl}; }) }));
+      }
     }).catch(function(err) {
       smartDetectionActive = false;
       statusText.textContent = "YouTube extraction error: " + err.message;
@@ -839,6 +825,26 @@ function showSmartPopup(_0x235124) {
         renderDownloads();
         setTimeout(hideSmartPopup, 2000);
       };
+      // YouTube native: use direct pre-signed URL instead of yt-dlp (no bot detection)
+      if (window.veloce && window.veloce.ytDebug) window.veloce.ytDebug(JSON.stringify({ fid: _0x2fef37, isAudio: _0x1942a0, keys: window._youtubeDirectUrls ? Object.keys(window._youtubeDirectUrls) : null }));
+      if (window._youtubeDirectUrls && window._youtubeDirectUrls[_0x2fef37] && !_0x1942a0) {
+        var _ytDirect = window._youtubeDirectUrls[_0x2fef37];
+        var _ytFilename = _0x1bc5fa + '.' + _ytDirect.ext;
+        window.veloce.startDownload(_ytDirect.url, _ytFilename, 'https://www.youtube.com/', _0x235124.title).then(function(_ytR) {
+          if (_ytR && _ytR.ok) {
+            downloads[_0x214e3a].status = 'Complete';
+            downloads[_0x214e3a].progress = '100%';
+            statusText.textContent = '✓ Complete: ' + _0x1bc5fa;
+            document.getElementById('sp-bar-' + _0x55f414).style.width = '100%';
+            document.getElementById('sp-status-' + _0x55f414).textContent = 'Complete ✓';
+          } else {
+            // Fall back to yt-dlp if direct download fails
+            window.veloce.downloadFormat(_0x23d685, _0x2fef37, _0x1942a0, _0x235124.title, _0x55f414);
+          }
+        }).catch(function() {
+          window.veloce.downloadFormat(_0x23d685, _0x2fef37, _0x1942a0, _0x235124.title, _0x55f414);
+        });
+      } else {
       window.veloce.downloadFormat(_0x23d685, _0x2fef37, _0x1942a0, _0x235124.title, _0x55f414).then(function (_0x23bfd0) {
         downloads[_0x214e3a].status = "Complete";
         downloads[_0x214e3a].progress = "100%";
@@ -883,6 +889,7 @@ function showSmartPopup(_0x235124) {
           _0x1f16f8.textContent = _0x1f16f8.getAttribute("data-audio") === "true" ? "⬇ MP3" : "⬇ MP4";
         });
       });
+      } // close else: non-YouTube uses yt-dlp, YouTube uses direct URL above
     };
   });
 }

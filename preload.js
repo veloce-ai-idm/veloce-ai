@@ -100,6 +100,13 @@ contextBridge.exposeInMainWorld('veloce', {
   cancelFormat: (ytDlpId) =>
     ipcRenderer.invoke('ytdlp-cancel-format', ytDlpId),
 
+  // Debug: log from renderer to main process
+  ytDebug: (msg) => ipcRenderer.invoke('yt-debug', msg),
+
+  // ── YouTube direct browser download (no yt-dlp, no bots) ──
+  youtubeDirectDownload: (webContentsId, url) =>
+    ipcRenderer.invoke('youtube-direct-download', webContentsId, url),
+
   // ── Self-Learning Crawler (Developer Mode) ──
   crawlerStart: (opts) => ipcRenderer.invoke('crawler-start', opts),
   crawlerPause: () => ipcRenderer.invoke('crawler-pause'),
