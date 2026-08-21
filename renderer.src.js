@@ -1535,7 +1535,7 @@ if (window.veloce) {
         renderDownloads();
         statusText.textContent = "Downloading: " + _0x1095d2;
         activeDownloadDialog = _0x159d87.id || _0x1095d2;
-        window.veloce.startDownload(_0x159d87.url, _0x159d87.filename, _0x3e7090, _0x3d7fe0).then(function (_0x136e30) {
+        window.veloce.startDownload(_0x159d87.url, _0x159d87.filename, _0x3e7090, _0x3d7fe0, _0x159d87.id).then(function (_0x136e30) {
           if (_0x136e30 && _0x136e30.duplicate) {
             downloads.splice(_0x257cbd, 1);
             statusText.textContent = "Already downloading this file";

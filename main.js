@@ -1079,8 +1079,20 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   var finalUrl = await resolveRedirects(url);
   console.log('[Veloce DL] Final URL: ' + finalUrl.slice(0, 80) + '...');
 
-  // Split file into N segments — one per worker (like real IDM)
+  // Hosts that throttle parallel connections — fewer workers = fewer dropped
+  // connections = the download actually finishes (archive.org, rumble).
   var numWorkers = activeConcurrency;
+  var dlLower = finalUrl.toLowerCase();
+  var throttleHosts = ['archive.org', 'rumble.cloud'];
+  for (var hi = 0; hi < throttleHosts.length; hi++) {
+    if (dlLower.indexOf(throttleHosts[hi]) !== -1) {
+      numWorkers = Math.min(numWorkers, 4);
+      console.log('[Veloce DL] Throttled host (' + throttleHosts[hi] + ') — capping to ' + numWorkers + ' connections');
+      break;
+    }
+  }
+
+  // Split file into N segments — one per worker (like real IDM)
   var segmentSize = Math.ceil(totalSize / numWorkers);
   var segments = [];
   for (var i = 0; i < numWorkers; i++) {
@@ -1194,6 +1206,34 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   var workerPromises = segments.map(function(seg) { return segmentWorker(seg); });
   await Promise.all(workerPromises);
 
+  // ── Fill-holes pass ──
+  // A dropped connection often succeeds on a fresh one (transient CDN reset).
+  // Re-attempt each unfinished segment's remaining range before giving up.
+  var holes = segments.filter(function(s) { return !s.finished; });
+  for (var fi = 0; fi < holes.length && !aborted; fi++) {
+    var hole = holes[fi];
+    var resumeAt = hole.start + hole.bytesWritten;
+    console.log('[Veloce DL] Re-fetching dropped segment ' + hole.id + ' from ' + (resumeAt / 1048576).toFixed(1) + ' MB');
+    for (var att = 0; att < 3 && resumeAt <= hole.end && !aborted; att++) {
+      if (cancelKey && cancelledDownloads[cancelKey]) { aborted = true; break; }
+      var holeResult = await streamSegment(finalUrl, resumeAt, hole.end, fd, DIRECT_STALL_TIMEOUT,
+        function(chunkLen) {
+          if (cancelKey && cancelledDownloads[cancelKey]) { aborted = true; return false; }
+          totalBytes += chunkLen;
+          hole.bytesWritten += chunkLen;
+          return true;
+        }
+      );
+      resumeAt += holeResult.bytesWritten;
+      if (holeResult.finished) {
+        hole.finished = true;
+        console.log('[Veloce DL] Segment ' + hole.id + ' recovered');
+        break;
+      }
+      await new Promise(function(res) { setTimeout(res, 2000); });
+    }
+  }
+
   clearInterval(reportInterval);
   reportProgress();  // final report
 
@@ -1204,7 +1244,7 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   } else {
     console.log('[Veloce DL] Partial: ' + (totalBytes / 1048576).toFixed(1) + '/' + (totalSize / 1048576).toFixed(1) + ' MB');
   }
-  return { totalBytes: totalBytes };
+  return { totalBytes: totalBytes, complete: allDone };
 }
 
 // ── Track active downloads to prevent duplicates ──
@@ -1212,6 +1252,11 @@ var activeDownloads = {};  // url -> true
 
 // ── Track download items for pause/resume ──
 var downloadItems = {};  // id or filename -> Electron DownloadItem
+
+// dlId -> display filename. The booster workers check cancellation by the DISPLAY
+// name, but the renderer cancels intercepted downloads by Electron's item id
+// ("dl-<timestamp>"). This map lets us resolve the id to the name so cancel works.
+var dlIdToName = {};  // dlId -> display filename
 
 // ── Cancellation flags for HLS downloads ──
 var cancelledDownloads = {};  // filename -> true
@@ -1610,6 +1655,7 @@ function setupBrowserSession() {
     // Track the download item for pause/resume
     downloadItems[dlId] = item;
     downloadItems[finalName] = item;
+    dlIdToName[dlId] = finalName;  // so cancel-by-id resolves to the display name
 
     // ── PAUSE immediately — show info dialog first, user clicks Start Download ──
     item.pause();
@@ -2243,6 +2289,7 @@ ipcMain.handle('start-download', async function(event, data) {
   var filename = data.filename || 'download';
   var referer = data.referer || '';
   var pageTitle = data.pageTitle || '';
+  var dlId = data.id || null;  // Electron intercepted-item id ("dl-<ts>"), if this came through the dialog
 
   // ── Security: Validate URL ──
   if (!isValidUrl(url)) {
@@ -2471,7 +2518,11 @@ ipcMain.handle('start-download', async function(event, data) {
         if (mainWindow && !mainWindow.isDestroyed()) {
           var pct = totalSize > 0 ? Math.round((p.bytes / totalSize) * 100) : 0;
           mainWindow.webContents.send('download-progress', {
-            filename: safeName,
+            // Use the DISPLAY name (baseName), not safeName — the renderer matches
+            // rows/dialog by the display name or id. safeName has a unique ID
+            // inserted before the extension, so it never matches.
+            id: dlId || undefined,
+            filename: baseName,
             percent: pct,
             speed: formatSpeed(p.speed),
             eta: formatETA(p.eta),
@@ -2482,17 +2533,19 @@ ipcMain.handle('start-download', async function(event, data) {
             tunnelSpeeds: p.tunnelSpeeds || null,
           });
         }
-      }, safeName);
+      }, baseName);
 
-      // Check if download was cancelled by user
-      if (cancelledDownloads[safeName]) {
+      // Check if download was cancelled by user (checked against the display name,
+      // which is the key the renderer's cancel flag lands under)
+      if (cancelledDownloads[baseName] || cancelledDownloads[safeName]) {
         console.log('[Veloce DL] Direct download cancelled — cleaning up partial file');
+        delete cancelledDownloads[baseName];
         delete cancelledDownloads[safeName];
         delete activeDownloads[urlKey];
         try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (e) {}
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('download-progress', {
-            filename: safeName,
+            filename: baseName,
             percent: 0,
             speed: '',
             eta: '',
@@ -2504,6 +2557,23 @@ ipcMain.handle('start-download', async function(event, data) {
 
       var dlSize = (result.totalBytes / 1048576).toFixed(1) + ' MB';
       delete activeDownloads[urlKey];
+
+      // NEVER report a partial download as complete — the file is pre-truncated
+      // to full size, so dropped segments leave zero-filled holes = corrupt file.
+      if (!result.complete) {
+        console.log('[Veloce DL] FAILED — incomplete (' + dlSize + ' of ' + (totalSize / 1048576).toFixed(1) + ' MB). Deleting corrupt file.');
+        try { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); } catch (e) {}
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('download-progress', {
+            filename: baseName,
+            percent: 0,
+            speed: '',
+            eta: '',
+            status: 'Error',
+          });
+        }
+        throw new Error('Download incomplete: got ' + dlSize + ' of ' + (totalSize / 1048576).toFixed(1) + ' MB — the server dropped connections. Try again.');
+      }
 
       // Auto-rename: remove unique ID suffix for clean filename
       var cleanName = nameNoExt.replace(/_$/, '') + fileExt;  // e.g. "Qwen...Q4_K_M.gguf"
@@ -3209,12 +3279,14 @@ ipcMain.handle('pause-download', function(event, id) {
       delete downloadItems[realId];
       console.log('[Veloce DL] Cancelled direct download: ' + realId);
     }
-    // Set cancellation flag for HLS downloads (checked by tunnel loop)
+    // Set cancellation flag for HLS/booster downloads (checked by tunnel loop).
+    // The booster workers check by the DISPLAY name, so resolve the intercepted
+    // Electron item id ("dl-<ts>") to its display filename when we have one.
+    var dlName = dlIdToName[realId] || realId;
     cancelledDownloads[realId] = true;
-    // Also try matching by removing path-unsafe chars (same as safeName without truncation)
-    var safeName = realId.replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, '_');
-    cancelledDownloads[safeName] = true;
-    console.log('[Veloce DL] Cancel flag set: ' + realId);
+    cancelledDownloads[dlName] = true;
+    cancelledDownloads[sanitizeFilename(dlName)] = true;
+    console.log('[Veloce DL] Cancel flag set: ' + dlName + ' (from ' + realId + ')');
     return;
   }
   var item = downloadItems[id];

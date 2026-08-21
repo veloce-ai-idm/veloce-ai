@@ -8,8 +8,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('veloce', {
   // Downloads
-  startDownload: (url, filename, referer, pageTitle) =>
-    ipcRenderer.invoke('start-download', { url, filename, referer, pageTitle }),
+  startDownload: (url, filename, referer, pageTitle, id) =>
+    ipcRenderer.invoke('start-download', { url, filename, referer, pageTitle, id }),
 
   openDownloads: () =>
     ipcRenderer.invoke('open-downloads'),
