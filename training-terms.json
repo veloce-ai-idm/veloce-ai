@@ -694,9 +694,6 @@
       "ERD Commander 2005",
       "BartPE builder",
       "Windows PE builder"
-    ],
-    "custom": [
-      "piel"
     ]
   }
 }

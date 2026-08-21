@@ -34,16 +34,74 @@ const DOWNLOAD_EXTENSIONS = [
 
 // ── Keywords that suggest a link leads to downloads ──
 const DOWNLOAD_KEYWORDS = [
+  // Direct download phrases
   'download', 'download now', 'direct download', 'free download',
-  'get file', 'get it', 'grab', 'mirror',
+  'start download', 'begin download', 'get download', 'fast download',
+  'secure download', 'safe download', 'official download', 'latest download',
+  'download file', 'download link', 'download here', 'download page',
+  'download it', 'download this', 'download below',
+
+  // "Get it" / "Grab it" variants
+  'get it', 'get it here', 'get it now', 'get file', 'get the file',
+  'get this', 'get here', 'grab', 'grab it', 'grab here', 'grab this',
+  'grab the file', 'grab it here', 'get software', 'get program', 'get app',
+
+  // "Click here" hidden link variants (very common on older sites)
+  'click here', 'click here to download', 'click to download',
+  'click here for download', 'click here to get', 'click here to grab',
+  'click here to start', 'click here to begin', 'click here to access',
+  'click here for the file', 'click here for file', 'click this link',
+  'click the link', 'click below', 'click above', 'click the button',
+
+  // "Look here" / "Find here" / "Go here" variants
+  'look here', 'find download here', 'find it here', 'find here',
+  'find the file', 'find the download', 'find file', 'find link',
+  'go here', 'go to download', 'go to file', 'visit here', 'visit page',
+  'visit this page', 'visit the page', 'visit the link', 'follow this link',
+  'follow link', 'follow the link', 'see here', 'see it here',
+
+  // "Proceed" / "Continue" / navigation to download
+  'proceed', 'proceed to download', 'proceed here', 'continue',
+  'continue to download', 'continue here', 'go to download page',
+  'access download', 'access file', 'access here',
+
+  // Mirror / alternate links
+  'mirror', 'mirror link', 'mirror download', 'alternate link',
+  'alternate download', 'alternative link', 'alternative download',
+  'external link', 'external mirror', 'external download',
+  'direct link', 'direct file', 'direct url',
+
+  // View/show files
   'show all', 'showall', 'view all', 'view contents', 'view files',
   'see all', 'see files', 'all files', 'file list', 'files list',
-  'click here to download', 'click to download',
-  'latest version', 'stable release', 'release notes',
-  'assets', 'releases', 'tags',
+  'show files', 'show downloads', 'show all files', 'show all downloads',
+  'browse files', 'browse all', 'view all files', 'list files',
+  'expand', 'more', 'show more', 'load more', 'see more',
+
+  // Release / version info
+  'latest version', 'stable release', 'release notes', 'changelog',
+  'assets', 'releases', 'tags', 'release', 'latest release',
+  'current version', 'current release', 'new version', 'updated version',
+
+  // File type / format keywords
   'source code', 'binary', 'binaries', 'installer', 'portable',
-  'full version', 'setup', 'install',
-  'expand', 'more', 'show more', 'load more',
+  'full version', 'setup', 'install', 'executable', 'package',
+  'archive', 'compressed', 'zip file', 'exe file', 'msi file',
+
+  // Soft/generic CTA-style link texts common on download portals
+  'here', 'this link', 'this page', 'this file', 'this download',
+  'read more', 'learn more', 'more info', 'more information',
+  'details', 'file details', 'view details', 'full details',
+  'open', 'open file', 'open link', 'open page', 'open download',
+  'save', 'save file', 'save as', 'save this',
+  'fetch', 'fetch file', 'retrieve', 'retrieve file',
+
+  // Forms/buttons on sites like MajorGeeks, FileHorse, Softpedia
+  'download now', 'download file now', 'start download now',
+  'free download now', 'no thanks', 'skip ad', 'skip wait',
+  'regular download', 'slow download', 'fast download link',
+  'use this mirror', 'select mirror', 'choose mirror',
+  'download via', 'download from', 'download using',
 ];
 
 // ── URL patterns that often lead to download pages ──
@@ -54,6 +112,10 @@ const DOWNLOAD_URL_PATTERNS = [
   'sourceforge.net/projects/', '/files/latest/download',
   'github.com/', '/releases/tag/', '/releases/download/',
   'archive.org/download/', 'archive.org/details/',
+  // Download gateway redirectors (Softpedia, MajorGeeks, etc.)
+  'dyn-postdownload', 'dyn-dl', 'getdownload', 'download-now',
+  'download.php', 'download.asp', 'dl.php', 'getfile',
+  '/download-file/', '/downloads/download/', '/getdownload/',
 ];
 
 // ── Domains to skip (waste of time) ──
@@ -205,16 +267,18 @@ class VeloceCrawler {
         var found = [];
         var seen = {};
 
-        function add(url) {
+        function add(url, text) {
           if (url && !seen[url] && typeof url === 'string' && url.length > 1 &&
               !url.startsWith('#') && !url.startsWith('javascript:') && !url.startsWith('mailto:')) {
             seen[url] = true;
-            found.push(url);
+            found.push({ url: url, text: (text || '').trim().slice(0, 100) });
           }
         }
 
-        // 1. Standard <a href> links
-        Array.from(document.querySelectorAll('a[href]')).forEach(function(a) { add(a.href); });
+        // 1. Standard <a href> links — capture text
+        Array.from(document.querySelectorAll('a[href]')).forEach(function(a) {
+          add(a.href, (a.textContent || '').trim());
+        });
 
         // 2. data-* attributes that hide URLs
         Array.from(document.querySelectorAll('[data-url]')).forEach(function(el) { add(el.getAttribute('data-url')); });
@@ -267,55 +331,141 @@ class VeloceCrawler {
       // ── Interact with page to reveal hidden download links ──
       try {
         await page.evaluate(function() {
+          // Cast the widest net — any element that could be a hidden download trigger
           var clickTargets = document.querySelectorAll(
-            'a, button, span, div, input[type="button"], input[type="submit"]'
+            'a, button, span, div, p, li, td, th, label, ' +
+            'input[type="button"], input[type="submit"], input[type="image"], ' +
+            '[role="button"], [role="link"], [onclick], [data-url], [data-href]'
           );
           var clicked = 0;
-          for (var i = 0; i < clickTargets.length && clicked < 8; i++) {
+          // ALL the indirect/vague/hidden phrases sites use for download links
+          var downloadKeywords = [
+            // Direct
+            'download', 'free download', 'direct download', 'start download',
+            'secure download', 'safe download', 'official download', 'download now',
+            'download here', 'download link', 'download file', 'download it',
+            // Get/Grab
+            'get it', 'get it here', 'get it now', 'get file', 'grab', 'grab it',
+            'grab here', 'get software', 'get program', 'get app', 'get the file',
+            // Click here variants
+            'click here', 'click here to download', 'click to download',
+            'click here to get', 'click here to grab', 'click here to start',
+            'click here to access', 'click this link', 'click the link',
+            'click below', 'click the button', 'click above',
+            // Look/Find/Go/Visit
+            'look here', 'find download here', 'find it here', 'find here',
+            'find the file', 'find the download', 'go here', 'go to download',
+            'visit here', 'visit this page', 'visit the link', 'follow this link',
+            'follow link', 'see here', 'see it here', 'see the file',
+            // Proceed/Continue
+            'proceed', 'proceed to download', 'continue', 'continue to download',
+            'access download', 'access file', 'continue here',
+            // Mirror/Alternate
+            'mirror', 'mirror link', 'alternate link', 'alternative link',
+            'external link', 'external mirror', 'direct link', 'direct file',
+            // View/Show files
+            'show all', 'view all', 'view files', 'show files', 'browse files',
+            'see all', 'all files', 'file list', 'show more', 'see more',
+            'expand', 'load more', 'view all files', 'browse all',
+            // Release/Asset
+            'releases', 'assets', 'latest version', 'stable release',
+            'latest release', 'changelog', 'release notes',
+            // File type
+            'installer', 'portable', 'setup', 'executable', 'binary', 'binaries',
+            // Portal-specific CTAs
+            'regular download', 'slow download', 'use this mirror', 'select mirror',
+            'download via', 'download from', 'no thanks', 'skip ad',
+            // Generic soft CTAs
+            'here', 'this link', 'this file', 'this download', 'details',
+            'file details', 'full details', 'open', 'open file', 'fetch',
+            'save file', 'more info', 'more information', 'read more',
+            'retrieve', 'learn more'
+          ];
+          for (var i = 0; i < clickTargets.length && clicked < 25; i++) {
             var el = clickTargets[i];
+            // Gather all text signals from this element
             var text = (el.textContent || '').toLowerCase().trim();
-            var isDownloadBtn =
-              text === 'download' || text === 'download now' || text === 'direct download' ||
-              text === 'get it' || text === 'grab' || text === 'show all' || text === 'view all' ||
-              text === 'show mirrors' || text === 'mirrors' || text === 'more' ||
-              text === 'expand' || text === 'show files' || text === 'view files' ||
-              text === 'all downloads' || text === 'show download links' ||
-              text === 'latest version' || text === 'download latest';
+            var href = (el.getAttribute('href') || '').toLowerCase();
             var cls = (el.className || '').toString().toLowerCase();
             var id = (el.id || '').toLowerCase();
-            var isDownloadClass =
-              cls.includes('download') || cls.includes('btn-dl') || cls.includes('mirror') ||
-              id.includes('download') || id.includes('btn-dl') || id.includes('mirror') ||
-              cls.includes('show-all') || cls.includes('view-all');
-            if ((isDownloadBtn || isDownloadClass) && el.offsetParent !== null) {
+            var ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+            var title = (el.getAttribute('title') || '').toLowerCase();
+            var val = (el.getAttribute('value') || '').toLowerCase();
+            var alt = (el.getAttribute('alt') || '').toLowerCase();
+            // Combined signal string — check all text sources
+            var combined = text + ' ' + ariaLabel + ' ' + title + ' ' + val + ' ' + alt;
+
+            var isDownloadText = false;
+            for (var dk = 0; dk < downloadKeywords.length; dk++) {
+              if (combined.indexOf(downloadKeywords[dk]) !== -1) { isDownloadText = true; break; }
+            }
+
+            // href URL patterns that suggest a download or next-step page
+            var isDownloadHref = (
+              href.indexOf('/download') !== -1 || href.indexOf('/get/') !== -1 ||
+              href.indexOf('/files/') !== -1 || href.indexOf('/dl/') !== -1 ||
+              href.indexOf('/mirror') !== -1 || href.indexOf('/release') !== -1 ||
+              href.indexOf('/fetch') !== -1 || href.indexOf('/grab') !== -1 ||
+              href.indexOf('download.php') !== -1 || href.indexOf('dl.php') !== -1 ||
+              href.indexOf('getfile') !== -1 || href.indexOf('getdownload') !== -1
+            );
+
+            // Class/id/data attributes that reveal hidden download triggers
+            var isDownloadClass = (
+              cls.indexOf('download') !== -1 || cls.indexOf('btn-dl') !== -1 ||
+              cls.indexOf('mirror') !== -1 || cls.indexOf('dl-btn') !== -1 ||
+              cls.indexOf('get-file') !== -1 || cls.indexOf('fetch') !== -1 ||
+              cls.indexOf('show-all') !== -1 || cls.indexOf('view-all') !== -1 ||
+              id.indexOf('download') !== -1 || id.indexOf('btn-dl') !== -1 ||
+              id.indexOf('mirror') !== -1 || id.indexOf('get-file') !== -1 ||
+              id.indexOf('fetch') !== -1 || id.indexOf('show-all') !== -1 ||
+              el.hasAttribute('data-url') || el.hasAttribute('data-download') ||
+              el.hasAttribute('data-href') || el.hasAttribute('data-link')
+            );
+
+            if ((isDownloadText || isDownloadHref || isDownloadClass) && el.offsetParent !== null) {
               try { el.click(); clicked++; } catch(e) {}
             }
           }
         });
-        await new Promise(function(r) { setTimeout(r, 2000); });
-        // Re-collect after interaction
+        await new Promise(function(r) { setTimeout(r, 2500); });
+        // Re-collect after interaction (now also checks onclick + buttons)
         var linksAfterClick = await page.evaluate(function() {
           var found = [];
           var seen = {};
-          function add(url) {
+          function add(url, text) {
             if (url && !seen[url] && typeof url === 'string' && url.length > 1 &&
                 !url.startsWith('#') && !url.startsWith('javascript:') && !url.startsWith('mailto:')) {
               seen[url] = true;
-              found.push(url);
+              found.push({ url: url, text: (text || '').trim().slice(0, 100) });
             }
           }
-          Array.from(document.querySelectorAll('a[href]')).forEach(function(a) { add(a.href); });
+          // Standard links — capture text
+          Array.from(document.querySelectorAll('a[href]')).forEach(function(a) {
+            add(a.href, (a.textContent || '').trim());
+          });
+          // data-* attributes
           Array.from(document.querySelectorAll('[data-url]')).forEach(function(el) { add(el.getAttribute('data-url')); });
           Array.from(document.querySelectorAll('[data-download]')).forEach(function(el) { add(el.getAttribute('data-download')); });
           Array.from(document.querySelectorAll('[data-href]')).forEach(function(el) { add(el.getAttribute('data-href')); });
           Array.from(document.querySelectorAll('[data-link]')).forEach(function(el) { add(el.getAttribute('data-link')); });
+          // onclick handlers on any element (download buttons often use JS redirects)
+          var allElems = document.querySelectorAll('*[onclick]');
+          for (var i = 0; i < allElems.length; i++) {
+            var oc = allElems[i].getAttribute('onclick') || '';
+            var m = oc.match(/(?:location\.href|window\.location|location|window\.open)\s*[=\(]\s*['"]([^'"]+)['"]/);
+            if (m) add(m[1]);
+            m = oc.match(/['"](https?:\/\/[^'"]+)['"]/);
+            if (m) add(m[1]);
+          }
           return found;
         });
         if (linksAfterClick && linksAfterClick.length > 0) {
           var seenUrls = {};
-          for (var li = 0; li < links.length; li++) { seenUrls[links[li]] = true; }
+          for (var li = 0; li < links.length; li++) { seenUrls[links[li].url || links[li]] = true; }
           for (var lj = 0; lj < linksAfterClick.length; lj++) {
-            if (!seenUrls[linksAfterClick[lj]]) {
+            var laUrl = linksAfterClick[lj].url || linksAfterClick[lj];
+            if (!seenUrls[laUrl]) {
               links.push(linksAfterClick[lj]);
             }
           }
@@ -636,15 +786,41 @@ class VeloceCrawler {
     }
   }
 
+  // ── Check if a page is actually relevant to the search term ──
+  pageIsRelevant(url, title, body, searchTerm) {
+    if (!searchTerm) return true;
+    // Split into words, keep 2+ char (preserves VLC, CPU, ISO, etc.)
+    var words = searchTerm.toLowerCase().split(/[\s\-_\.]+/).filter(function(w) { return w.length > 1; });
+    if (words.length === 0) return true;
+
+    var haystack = (title || '').toLowerCase() + ' ' + (url || '').toLowerCase() + ' ' + (body || '').slice(0, 2000).toLowerCase();
+
+    // MUST-MATCH: the longest word (most specific) must be in the page
+    var longestWord = words[0];
+    for (var i = 1; i < words.length; i++) {
+      if (words[i].length > longestWord.length) longestWord = words[i];
+    }
+    if (haystack.indexOf(longestWord) === -1) return false;
+
+    // THRESHOLD: at least 50% of words must match
+    var matched = 0;
+    for (var i = 0; i < words.length; i++) {
+      if (haystack.indexOf(words[i]) !== -1) matched++;
+    }
+    return matched >= Math.ceil(words.length * 0.5);
+  }
+
   // ── Crawl a single page and its links ──
   async crawlPage(url, searchTerm, depth) {
     if (depth > this.maxDepth) return;
-    if (this.visitedUrls.has(url)) return;
+    // Strip hash fragments — #download, #main etc are the same page
+    var urlNoHash = url.split('#')[0];
+    if (this.visitedUrls.has(urlNoHash)) return;
     if (!this.running || this.paused) return;
 
-    this.visitedUrls.add(url);
+    this.visitedUrls.add(urlNoHash);
     this.stats.pagesVisited++;
-    this.stats.currentUrl = url;
+    this.stats.currentUrl = urlNoHash;
     this.sessionVisited++;
 
     var domain = this.getDomain(url);
@@ -652,6 +828,15 @@ class VeloceCrawler {
     // Skip bad domains
     for (var i = 0; i < SKIP_DOMAINS.length; i++) {
       if (domain.includes(SKIP_DOMAINS[i])) return;
+    }
+    // Skip official vendor sites — their domain contains a word from the search term
+    // e.g. searching "Kaspersky Free" → skip kaspersky.com, kaspersky.co.za
+    var searchWords = searchTerm.toLowerCase().split(/[\s\-_\.]+/).filter(function(w) { return w.length > 3; });
+    for (var sw = 0; sw < searchWords.length; sw++) {
+      if (domain.indexOf(searchWords[sw]) !== -1) {
+        this.addLog('info', '  ⊘ Skipping vendor site: ' + domain);
+        return;
+      }
     }
 
     this.addLog('info', (depth > 0 ? '  '.repeat(depth) + '↳ ' : '') + 'Visiting: ' + url.slice(0, 100));
@@ -685,13 +870,27 @@ class VeloceCrawler {
         }
       }
 
+      // ── Relevance check: reject pages unrelated to search term ──
+      var pageTitle = '';
+      if (page.body) {
+        var titleMatch = page.body.match(/<title>([^<]*)<\/title>/i);
+        if (titleMatch) pageTitle = titleMatch[1];
+      }
+      var isRelevant = this.pageIsRelevant(url, pageTitle, page.body || '', searchTerm);
+      if (!isRelevant) {
+        this.addLog('info', '  ⊘ Skipping irrelevant page: ' + pageTitle.slice(0, 60));
+        return;
+      }
+
       // Use pre-extracted links from CloakBrowser if available, else parse HTML
       var links = [];
       if (page.links && page.links.length > 0) {
         // CloakBrowser already extracted links — score them using the original logic
         var seen = new Set();
         for (var li = 0; li < page.links.length; li++) {
-          var href = page.links[li];
+          var linkObj = page.links[li];
+          var href = typeof linkObj === 'string' ? linkObj : (linkObj.url || '');
+          var linkText = typeof linkObj === 'string' ? '' : (linkObj.text || '');
           if (!href || seen.has(href)) continue;
           seen.add(href);
           var fullUrl;
@@ -705,13 +904,13 @@ class VeloceCrawler {
           for (var pi = 0; pi < DOWNLOAD_URL_PATTERNS.length; pi++) {
             if (urlLower.includes(DOWNLOAD_URL_PATTERNS[pi])) { score += 5; reasons.push('path:' + DOWNLOAD_URL_PATTERNS[pi]); break; }
           }
-          // Check link text in page body for keywords
-          var ltext = '';
+          // Score based on link's OWN text (was checking page.body globally — useless)
           for (var ki = 0; ki < DOWNLOAD_KEYWORDS.length; ki++) {
-            if (page.body && page.body.toLowerCase().includes(DOWNLOAD_KEYWORDS[ki])) { score += 2; ltext = DOWNLOAD_KEYWORDS[ki]; break; }
+            if (linkText.toLowerCase().indexOf(DOWNLOAD_KEYWORDS[ki]) !== -1) { score += 5; reasons.push('text:' + DOWNLOAD_KEYWORDS[ki]); break; }
           }
-          if (score > 0) {
-            links.push({ url: fullUrl, text: ltext, score: score, reasons: reasons, isDirectFile: score >= 10 });
+          // Include links with text even if score=0 (match extractLinks behaviour)
+          if (score > 0 || linkText) {
+            links.push({ url: fullUrl, text: linkText, score: score, reasons: reasons, isDirectFile: score >= 10 });
           }
         }
         links.sort(function(a, b) { return b.score - a.score; });
@@ -723,38 +922,79 @@ class VeloceCrawler {
 
       // Process direct file links first
       var directFiles = links.filter(function(l) { return l.isDirectFile; });
+      // Lower threshold: score>=3 catches text-matched links (download keywords = +5, path match = +5)
       var promiseLinks = links.filter(function(l) { return !l.isDirectFile && l.score >= 3; });
 
-      // Record direct file links
+      // Filter out self-links and hash-only links that waste follow slots
+      links = links.filter(function(l) {
+        var lUrl;
+        try { lUrl = new URL(l.url, url).href; } catch(e) { return false; }
+        // Skip same-page hash links
+        if (lUrl.split('#')[0] === url.split('#')[0] && lUrl.indexOf('#') !== -1) return false;
+        return true;
+      });
+
+      // Debug: log top links to see what we're working with
+      for (var di = 0; di < Math.min(links.length, 5); di++) {
+        var dl = links[di];
+        this.addLog('info', '  [' + dl.score + '] ' + (dl.text || '(no text)').slice(0, 40) + ' → ' + dl.url.slice(0, 80));
+      }
+
+      // Record direct file links — save ALL high-score links, not just ones that pass HEAD.
+      // Gateway/redirect URLs like /mg/get/, /download.php, filehorse tokens etc. never respond
+      // to HEAD as binary but ARE real downloads. HEAD is only used to get size/type bonus.
       for (var i = 0; i < directFiles.length && i < 20; i++) {
         var link = directFiles[i];
         if (!this.running || this.paused) return;
 
-        // Verify it's actually a file
-        var fileInfo = await this.checkIfFile(link.url);
-        if (fileInfo) {
-          var fName = link.url.split('/').pop().split('?')[0];
-          var fSizeMB = fileInfo.size > 0 ? (fileInfo.size / 1048576).toFixed(1) + ' MB' : 'unknown size';
-          this.addLog('found', '★ ' + fName + ' (' + fSizeMB + ') via "' + (link.text || 'direct').slice(0, 30) + '"');
+        var fName = link.url.split('/').pop().split('?')[0] || 'download';
 
-          this.recordPattern(domain, {
-            searchTerm: searchTerm,
-            pageUrl: url,
-            fileUrl: link.url,
-            fileName: fName,
-            fileSize: fileInfo.size,
-            fileType: fileInfo.type,
-            linkText: link.text,
-            depth: depth,
-            pathPattern: this.getPathPattern(link.url),
-          });
-        }
+        // Try HEAD for size/type — but save the pattern regardless of outcome
+        var fileInfo = await this.checkIfFile(link.url);
+        var fSizeMB = (fileInfo && fileInfo.size > 0) ? (fileInfo.size / 1048576).toFixed(1) + ' MB' : 'gateway';
+        this.addLog('found', '★ ' + fName + ' (' + fSizeMB + ') via "' + (link.text || 'direct').slice(0, 30) + '"');
+
+        this.recordPattern(domain, {
+          searchTerm: searchTerm,
+          pageUrl: url,
+          fileUrl: link.url,
+          fileName: fName,
+          fileSize: fileInfo ? fileInfo.size : 0,
+          fileType: fileInfo ? fileInfo.type : 'gateway',
+          linkText: link.text,
+          depth: depth,
+          pathPattern: this.getPathPattern(link.url),
+        });
 
         // Small delay between HEAD checks
-        await this.sleep(500);
+        await this.sleep(300);
       }
 
-      // Follow promising non-file links deeper
+      // Also save promising non-file links that look like download gateways (score 5-9)
+      // Only save if the link text or URL contains at least one word from the search term
+      // — cuts sidebar noise like "Yahoo", "IObit Turns 21!", "How to Uninstall" etc.
+      var termWordsForFilter = searchTerm.toLowerCase().split(/[\s\-_\.]+/).filter(function(w) { return w.length > 3; });
+      for (var gi = 0; gi < promiseLinks.length && gi < 10; gi++) {
+        var pl = promiseLinks[gi];
+        if (pl.score < 5) continue;
+        // Relevance gate: link text OR url must contain at least one search term word
+        var plHaystack = (pl.text + ' ' + pl.url).toLowerCase();
+        var plRelevant = termWordsForFilter.length === 0 || termWordsForFilter.some(function(w) { return plHaystack.indexOf(w) !== -1; });
+        if (!plRelevant) continue;
+        this.recordPattern(domain, {
+          searchTerm: searchTerm,
+          pageUrl: url,
+          fileUrl: pl.url,
+          fileName: '',
+          fileSize: 0,
+          fileType: 'page-gateway',
+          linkText: pl.text,
+          depth: depth,
+          pathPattern: this.getPathPattern(pl.url),
+        });
+      }
+
+      // Follow promising non-file links deeper (top 5, score >= 3)
       for (var i = 0; i < promiseLinks.length && i < 5; i++) {
         if (!this.running || this.paused) return;
         await this.sleep(this.crawlDelay);
@@ -824,23 +1064,33 @@ class VeloceCrawler {
   // ── Search SourceForge for a term ──
   async searchSourceForge(term) {
     var encoded = encodeURIComponent(term);
-    var url = 'https://sourceforge.net/directory/?q=' + encoded;
-    // SourceForge search returns HTML, we just extract project links
+    var sfUrl = 'https://sourceforge.net/directory/?q=' + encoded;
+    // Build relevance words from search term for filtering unrelated SF projects
+    var termWords = term.toLowerCase().split(/[\s\-_\.]+/).filter(function(w) { return w.length > 2; });
     try {
-      var page = await this.fetchPage(url);
+      var page = await this.fetchPage(sfUrl);
       if (!page || page.status !== 200) return [];
 
       var results = [];
-      var regex = /href="(\/projects\/[^"\/]+\/?)"/gi;
+      // Grab project path AND the surrounding text snippet to test relevance
+      var projectRegex = /href="(\/projects\/([^"\/]+)\/?)["]/gi;
       var match;
       var seen = new Set();
-      while ((match = regex.exec(page.body)) !== null && results.length < 3) {
+      while ((match = projectRegex.exec(page.body)) !== null && results.length < 5) {
         var projectPath = match[1];
+        var projectSlug = match[2].toLowerCase();
         if (seen.has(projectPath)) continue;
         seen.add(projectPath);
+        // Only keep projects whose slug contains at least one term word
+        var slugMatches = termWords.some(function(w) { return projectSlug.indexOf(w) !== -1; });
+        // Also check 200-char context around the match in the page body
+        var ctxStart = Math.max(0, match.index - 100);
+        var ctx = page.body.slice(ctxStart, match.index + 200).toLowerCase();
+        var ctxMatches = termWords.some(function(w) { return ctx.indexOf(w) !== -1; });
+        if (!slugMatches && !ctxMatches) continue;  // skip unrelated
         results.push({
           url: 'https://sourceforge.net' + projectPath + 'files/',
-          title: projectPath.replace('/projects/', '').replace(/\//g, ''),
+          title: projectSlug,
           source: 'sourceforge.net',
         });
       }
@@ -850,17 +1100,167 @@ class VeloceCrawler {
     }
   }
 
+  // ── Search known download sites directly (bypass search engines, get clean HTML) ──
+  async searchDirectSites(term) {
+    var encoded = encodeURIComponent(term);
+    var results = [];
+
+    // Softpedia — huge catalogue, strong search
+    try {
+      var spUrl = 'https://www.softpedia.com/dyn-search.php?search_term=' + encoded;
+      var spPage = await this.fetchPage(spUrl);
+      if (spPage && spPage.body && spPage.status === 200) {
+        var spRegex = /<a[^>]*href="(https?:\/\/www\.softpedia\.com\/get\/[^"]+\.shtml)"[^>]*>/gi;
+        var spMatch;
+        var spSeen = new Set();
+        while ((spMatch = spRegex.exec(spPage.body)) !== null && results.length < 4) {
+          var spLink = spMatch[1];
+          if (!spSeen.has(spLink)) { spSeen.add(spLink); results.push({ url: spLink, title: 'Softpedia: ' + term, source: 'softpedia.com' }); }
+        }
+      }
+    } catch (e) { /* silent */ }
+
+    // FossHub — clean, direct .exe/.msi links for open source
+    try {
+      var fhubUrl = 'https://www.fosshub.com/search/?q=' + encoded;
+      var fhubPage = await this.fetchPage(fhubUrl);
+      if (fhubPage && fhubPage.body && fhubPage.status === 200) {
+        var fhubRegex = /<a[^>]*href="(\/[^"]*\/[^"]+)"[^>]*class="[^"]*project[^"]*"[^>]*>/gi;
+        var fhubMatch;
+        var fhubSeen = new Set();
+        while ((fhubMatch = fhubRegex.exec(fhubPage.body)) !== null && results.length < 5) {
+          var fhubLink = 'https://www.fosshub.com' + fhubMatch[1];
+          if (!fhubSeen.has(fhubLink)) { fhubSeen.add(fhubLink); results.push({ url: fhubLink, title: 'FossHub: ' + term, source: 'fosshub.com' }); }
+        }
+      }
+    } catch (e) { /* silent */ }
+
+    // FileHippo — clean HTML, often has direct download links
+    try {
+      var fhUrl = 'https://filehippo.com/search/?query=' + encoded;
+      var page = await this.fetchPage(fhUrl);
+      if (page && page.body && page.status === 200) {
+        // Extract result links from FileHippo search
+        var fhRegex = /<a[^>]*href="(\/download_[^"]+)"[^>]*>/gi;
+        var match;
+        var seen = new Set();
+        while ((match = fhRegex.exec(page.body)) !== null && results.length < 3) {
+          var link = 'https://filehippo.com' + match[1];
+          if (!seen.has(link)) { seen.add(link); results.push({ url: link, title: 'FileHippo: ' + term, source: 'filehippo.com' }); }
+        }
+        if (results.length === 0) {
+          // Fallback: broader pattern
+          var fhRegex2 = /<a[^>]*href="(\/[^"]*download[^"]*)"[^>]*>/gi;
+          while ((match = fhRegex2.exec(page.body)) !== null && results.length < 3) {
+            var link2 = 'https://filehippo.com' + match[1];
+            if (!seen.has(link2)) { seen.add(link2); results.push({ url: link2, title: 'FileHippo: ' + term, source: 'filehippo.com' }); }
+          }
+        }
+      }
+    } catch (e) { /* silent */ }
+
+    // OldVersion.com — great for old software, clean HTML
+    try {
+      var ovUrl = 'https://www.oldversion.com/search?q=' + encoded;
+      var ovPage = await this.fetchPage(ovUrl);
+      if (ovPage && ovPage.body && ovPage.status === 200) {
+        var ovRegex = /<a[^>]*href="(\/windows\/[^"]+)"[^>]*>/gi;
+        var ovMatch;
+        var ovSeen = new Set();
+        while ((ovMatch = ovRegex.exec(ovPage.body)) !== null && results.length < 5) {
+          var ovLink = 'https://www.oldversion.com' + ovMatch[1];
+          if (!ovSeen.has(ovLink)) { ovSeen.add(ovLink); results.push({ url: ovLink, title: 'OldVersion: ' + term, source: 'oldversion.com' }); }
+        }
+      }
+    } catch (e) { /* silent */ }
+
+    return results;
+  }
+
+  // ── Search DuckDuckGo via CloakBrowser (JS-rendered, bypasses bot detection) ──
+  async searchSoftwareSites(term) {
+    var encoded = encodeURIComponent(term + ' download');
+    // Also search for direct file links
+    var encodedDirect = encodeURIComponent(term + ' .exe OR .msi OR .zip');
+    var results = [];
+    var seen = new Set();
+
+    // Run both queries in parallel
+    var urls = [
+      'https://duckduckgo.com/?q=' + encoded + '&ia=web',
+      'https://duckduckgo.com/?q=' + encodedDirect + '&ia=web',
+    ];
+
+    for (var u = 0; u < urls.length; u++) {
+      try {
+        if (!this.cloakBrowser) {
+          this.addLog('info', 'Starting CloakBrowser stealth engine...');
+          var { launch } = await import('cloakbrowser');
+          this.cloakBrowser = await launch({ headless: true });
+          this.addLog('success', 'CloakBrowser ready');
+        }
+        var ddgPage = await this.cloakBrowser.newPage();
+        var ddgHtml = '';
+        try {
+          await ddgPage.setExtraHTTPHeaders({
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          });
+          await ddgPage.goto(urls[u], { waitUntil: 'networkidle0', timeout: 20000 });
+          await this.sleep(1000);
+          ddgHtml = await ddgPage.content();
+        } finally {
+          await ddgPage.close();
+        }
+
+        // Extract result links
+        var patterns = [
+          /<a[^>]*data-testid="result-title-a"[^>]*href="(https?:\/\/[^"]+)"/gi,
+          /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*data-testid="result-title-a"/gi,
+          /<a[^>]*href="(https?:\/\/[^"]+)"[^>]*class="[^"]*result[^"]*"[^>]*/gi,
+          /<a[^>]*href="(https?:\/\/(?!duckduckgo\.com|google\.com|youtube\.com|facebook\.com|twitter\.com|reddit\.com|amazon\.com|ebay\.com)[^"]+)"/gi,
+        ];
+
+        for (var pi = 0; pi < patterns.length && results.length < 8; pi++) {
+          var match;
+          while ((match = patterns[pi].exec(ddgHtml)) !== null && results.length < 8) {
+            var link = match[1].replace(/&amp;/g, '&');
+            if (link.indexOf('duckduckgo.com') !== -1) continue;
+            if (link.indexOf('google.com') !== -1) continue;
+            if (link.indexOf('youtube.com') !== -1) continue;
+            if (link.indexOf('amazon.com') !== -1) continue;
+            if (link.indexOf('ebay.com') !== -1) continue;
+            // Skip DDG redirect/tracking URLs
+            if (link.indexOf('/l/?') !== -1 || link.indexOf('uddg=') !== -1) continue;
+            if (seen.has(link)) continue;
+            seen.add(link);
+            results.push({ url: link, title: 'DDG: ' + term, source: 'duckduckgo.com' });
+          }
+        }
+      } catch (e) {
+        // Silent per-query
+      }
+    }
+
+    if (results.length === 0) {
+      this.addLog('info', '  ⊘ DDG: no results matched');
+    }
+    return results;
+  }
+
   // ── Search across multiple sources for a term ──
   async searchAllSources(term) {
     this.addLog('info', '🔍 Searching: "' + term + '"');
     var results = [];
 
     try {
-      // Run searches in parallel
+      // Run ALL sources in parallel — Archive.org + GitHub were previously excluded!
       var searches = await Promise.allSettled([
-        this.searchArchiveOrg(term),
-        this.searchGitHub(term),
-        this.searchSourceForge(term),
+        this.searchDirectSites(term),    // Softpedia, FossHub, FileHippo, OldVersion
+        this.searchSoftwareSites(term),  // DuckDuckGo (2 queries)
+        this.searchSourceForge(term),    // SourceForge directory
+        this.searchArchiveOrg(term),     // Internet Archive
+        this.searchGitHub(term),         // GitHub releases
       ]);
 
       for (var i = 0; i < searches.length; i++) {
@@ -878,7 +1278,7 @@ class VeloceCrawler {
   }
 
   // ── Main crawler loop ──
-  async start(categoryFilter) {
+  async start(opts) {
     if (this.running) return;
 
     this.running = true;
@@ -892,26 +1292,34 @@ class VeloceCrawler {
     this.addLog('info', '═══ VELOCE CRAWLER STARTED ═══');
     this.sendUpdate();
 
-    // Load terms (filtered by category if specified)
-    var terms = this.loadTerms(categoryFilter);
-    if (terms.length === 0) {
-      this.addLog('error', 'No training terms found!');
-      this.running = false;
-      this.stats.status = 'stopped';
-      this.sendUpdate();
-      return;
+    // Terms: use selectedTerms if provided, otherwise load by category filter
+    var categoryFilter = (opts && opts.category) || null;
+    var selectedTerms = (opts && opts.selectedTerms) || null;
+    var terms;
+    if (selectedTerms && selectedTerms.length > 0) {
+      terms = selectedTerms;
+      this.addLog('info', 'Using ' + terms.length + ' selected term(s)');
+    } else {
+      terms = this.loadTerms(categoryFilter);
+      if (terms.length === 0) {
+        this.addLog('error', 'No training terms found!');
+        this.running = false;
+        this.stats.status = 'stopped';
+        this.sendUpdate();
+        return;
+      }
+      this.addLog('info', 'Loaded ' + terms.length + ' training terms');
+
+      // Shuffle terms for variety
+      for (var i = terms.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = terms[i];
+        terms[i] = terms[j];
+        terms[j] = temp;
+      }
     }
 
     this.stats.totalTerms = terms.length;
-    this.addLog('info', 'Loaded ' + terms.length + ' training terms');
-
-    // Shuffle terms for variety
-    for (var i = terms.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var temp = terms[i];
-      terms[i] = terms[j];
-      terms[j] = temp;
-    }
 
     // Main loop
     for (var idx = 0; idx < terms.length; idx++) {

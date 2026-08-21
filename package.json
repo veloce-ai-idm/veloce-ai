@@ -1,6 +1,6 @@
 {
   "name": "veloce-ai-idm30",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "VELOCE AI IDM — AI-powered download manager with built-in browser",
   "main": "main.js",
   "author": "Veloce AI",

@@ -1031,7 +1031,7 @@ if (window.veloce && window.veloce.onDownloadProgress) {
       _0x5b3bdf = downloads.find(_0x185440 => _0x185440._internalName && _0x185440._internalName === _0x12c8d6.filename);
     }
     if (!_0x5b3bdf && _0x12c8d6.filename) {
-      _0x5b3bdf = downloads.find(_0x97bbd1 => _0x97bbd1._intercepted || (_0x97bbd1.status === "Downloading" && !_0x97bbd1._internalName));
+      _0x5b3bdf = downloads.find(_0x97bbd1 => _0x97bbd1.status === "Downloading" && !_0x97bbd1._internalName && !_0x97bbd1._intercepted);
     }
     if (_0x5b3bdf) {
       if (_0x12c8d6.filename && !_0x5b3bdf._internalName) {
@@ -2293,7 +2293,7 @@ function createCrawlerPanel() {
   var _0x1a5b92 = document.createElement("div");
   _0x1a5b92.id = "crawler-panel";
   _0x1a5b92.style.cssText = "\n    display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;\n    z-index: 9999; background: #060a12;\n    flex-direction: column; font-family: 'Rajdhani', 'Consolas', monospace;\n    color: #e0e0e0;\n  ";
-  _0x1a5b92.innerHTML = "\n    <div style=\"\n      display: flex; justify-content: space-between; align-items: center;\n      padding: 8px 16px; background: linear-gradient(135deg, #0f172a, #1e293b);\n      border-bottom: 2px solid #0ea5e9;\n    \">\n      <div style=\"display: flex; align-items: center; gap: 10px;\">\n        <span style=\"font-family: 'Orbitron', sans-serif; font-size: 14px; color: #0ea5e9; letter-spacing: 2px;\">VELOCE CRAWLER</span>\n        <span id=\"cw-status-badge\" style=\"\n          padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;\n          text-transform: uppercase; letter-spacing: 1px;\n          background: #1e293b; color: #64748b; border: 1px solid #334155;\n        \">IDLE</span>\n      </div>\n      <div style=\"display: flex; gap: 6px;\">\n        <button id=\"cw-btn-start\" class=\"cw-btn cw-btn-green\">▶ Start</button>\n        <button id=\"cw-btn-pause\" class=\"cw-btn cw-btn-yellow\" disabled>⏸ Pause</button>\n        <button id=\"cw-btn-stop\" class=\"cw-btn cw-btn-red\" disabled>⏹ Stop</button>\n        <button id=\"cw-btn-skip\" class=\"cw-btn\" disabled>⏭ Skip</button>\n        <div style=\"width: 1px; background: #334155; margin: 0 4px;\"></div>\n        <button id=\"cw-btn-close\" class=\"cw-btn\">✕ Close</button>\n      </div>\n    </div>\n\n    <div style=\"display: flex; flex: 1; overflow: hidden;\">\n      <!-- Left: Stats panel -->\n      <div style=\"width: 280px; padding: 12px; border-right: 1px solid #1e293b; overflow-y: auto;\">\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">PROGRESS</div>\n          <div class=\"cw-stat-row\"><span>Status</span><span id=\"cw-stat-status\" style=\"color: #64748b;\">Idle</span></div>\n          <div class=\"cw-stat-row\"><span>Current term</span><span id=\"cw-stat-term\" style=\"color: #0ea5e9; font-size: 11px;\">—</span></div>\n          <div class=\"cw-stat-row\"><span>Category</span><span id=\"cw-stat-category\">—</span></div>\n          <div class=\"cw-stat-row\"><span>Term #</span><span id=\"cw-stat-term-num\">0 / 0</span></div>\n          <div class=\"cw-stat-row\"><span>Uptime</span><span id=\"cw-stat-uptime\">—</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">DISCOVERIES</div>\n          <div class=\"cw-stat-row\"><span>Patterns found</span><span id=\"cw-stat-patterns\" style=\"color: #22c55e; font-weight: bold;\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Files found</span><span id=\"cw-stat-files\" style=\"color: #22c55e;\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Domains learned</span><span id=\"cw-stat-domains\">0</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">ACTIVITY</div>\n          <div class=\"cw-stat-row\"><span>Sites visited</span><span id=\"cw-stat-sites\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Pages visited</span><span id=\"cw-stat-pages\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Errors</span><span id=\"cw-stat-errors\" style=\"color: #ef4444;\">0</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">ADD SEARCH TERM</div>\n          <input id=\"cw-add-term\" type=\"text\" placeholder=\"e.g. Winamp 5.8\" style=\"\n            width: 100%; padding: 6px 8px; background: #0f172a; border: 1px solid #334155;\n            border-radius: 4px; color: #e0e0e0; font-size: 12px; margin-bottom: 6px; box-sizing: border-box;\n          \">\n          <button id=\"cw-btn-add\" class=\"cw-btn\" style=\"width: 100%; font-size: 11px;\">+ Add Term</button>\n        </div>\n      </div>\n\n      <!-- Right: tabbed view — LIVE LOG stays, TERMS tab added -->\n      <div style=\"flex: 1; display: flex; flex-direction: column; overflow: hidden;\">\n\n        <!-- Tab bar -->\n        <div style=\"display: flex; align-items: center; background: #0a0e17; border-bottom: 1px solid #1e293b; padding: 0 8px;\">\n          <button id=\"cw-tab-log\" style=\"\n            padding: 6px 14px; background: none; border: none; border-bottom: 2px solid #0ea5e9;\n            color: #0ea5e9; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;\n            cursor: pointer; text-transform: uppercase;\n          \">LIVE LOG</button>\n          <button id=\"cw-tab-terms\" style=\"\n            padding: 6px 14px; background: none; border: none; border-bottom: 2px solid transparent;\n            color: #475569; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;\n            cursor: pointer; text-transform: uppercase;\n          \">TERMS</button>\n          <span id=\"cw-current-url\" style=\"margin-left: 10px; font-size: 10px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;\"></span>\n        </div>\n\n        <!-- LIVE LOG view (stays exactly as before) -->\n        <div id=\"cw-log-view\" style=\"flex: 1; display: flex; flex-direction: column; overflow: hidden;\">\n          <div id=\"cw-log\" style=\"\n            flex: 1; overflow-y: auto; padding: 8px 12px;\n            font-family: 'Consolas', 'Courier New', monospace;\n            font-size: 11px; line-height: 1.6;\n            background: #060a12;\n          \"></div>\n        </div>\n\n        <!-- TERMS view (hidden by default) -->\n        <div id=\"cw-terms-view\" style=\"flex: 1; display: none; flex-direction: column; overflow: hidden; background: #060a12;\">\n          <!-- Terms toolbar -->\n          <div style=\"display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #1e293b; background: #0a0e17;\">\n            <select id=\"cw-term-filter\" style=\"\n              background: #0f172a; border: 1px solid #334155; color: #e0e0e0;\n              padding: 4px 8px; border-radius: 4px; font-size: 11px; flex: 1;\n            \"><option value=\"__all__\">All Categories</option></select>\n            <span id=\"cw-term-count\" style=\"color: #475569; font-size: 11px; white-space: nowrap;\"></span>\n            <button id=\"cw-btn-remove-selected\" style=\"\n              padding: 4px 10px; background: #7f1d1d; border: 1px solid #ef4444;\n              color: #fca5a5; border-radius: 4px; font-size: 11px; cursor: pointer;\n            \">Remove Selected</button>\n          </div>\n          <!-- Terms list -->\n          <div id=\"cw-term-list\" style=\"flex: 1; overflow-y: auto; padding: 4px 12px;\"></div>\n        </div>\n\n      </div>\n    </div>\n  ";
+  _0x1a5b92.innerHTML = "\n    <div style=\"\n      display: flex; justify-content: space-between; align-items: center;\n      padding: 8px 16px; background: linear-gradient(135deg, #0f172a, #1e293b);\n      border-bottom: 2px solid #0ea5e9;\n    \">\n      <div style=\"display: flex; align-items: center; gap: 10px;\">\n        <span style=\"font-family: 'Orbitron', sans-serif; font-size: 14px; color: #0ea5e9; letter-spacing: 2px;\">VELOCE CRAWLER</span>\n        <span id=\"cw-status-badge\" style=\"\n          padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;\n          text-transform: uppercase; letter-spacing: 1px;\n          background: #1e293b; color: #64748b; border: 1px solid #334155;\n        \">IDLE</span>\n      </div>\n      <div style=\"display: flex; gap: 6px;\">\n        <button id=\"cw-btn-start\" class=\"cw-btn cw-btn-green\">▶ Start</button>\n        <button id=\"cw-btn-pause\" class=\"cw-btn cw-btn-yellow\" disabled>⏸ Pause</button>\n        <button id=\"cw-btn-stop\" class=\"cw-btn cw-btn-red\" disabled>⏹ Stop</button>\n        <button id=\"cw-btn-skip\" class=\"cw-btn\" disabled>⏭ Skip</button>\n        <div style=\"width: 1px; background: #334155; margin: 0 4px;\"></div>\n        <button id=\"cw-btn-clear\" class=\"cw-btn\" style=\"color:#ef4444;border-color:#7f1d1d;background:rgba(127,29,29,0.2);\">🗑 Clear DB</button>\n        <button id=\"cw-btn-close\" class=\"cw-btn\">✕ Close</button>\n      </div>\n    </div>\n\n    <div style=\"display: flex; flex: 1; overflow: hidden;\">\n      <!-- Left: Stats panel -->\n      <div style=\"width: 280px; padding: 12px; border-right: 1px solid #1e293b; overflow-y: auto;\">\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">PROGRESS</div>\n          <div class=\"cw-stat-row\"><span>Status</span><span id=\"cw-stat-status\" style=\"color: #64748b;\">Idle</span></div>\n          <div class=\"cw-stat-row\"><span>Current term</span><span id=\"cw-stat-term\" style=\"color: #0ea5e9; font-size: 11px;\">—</span></div>\n          <div class=\"cw-stat-row\"><span>Category</span><span id=\"cw-stat-category\">—</span></div>\n          <div class=\"cw-stat-row\"><span>Term #</span><span id=\"cw-stat-term-num\">0 / 0</span></div>\n          <div class=\"cw-stat-row\"><span>Uptime</span><span id=\"cw-stat-uptime\">—</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">DISCOVERIES</div>\n          <div class=\"cw-stat-row\"><span>Patterns found</span><span id=\"cw-stat-patterns\" style=\"color: #22c55e; font-weight: bold;\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Files found</span><span id=\"cw-stat-files\" style=\"color: #22c55e;\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Domains learned</span><span id=\"cw-stat-domains\">0</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">ACTIVITY</div>\n          <div class=\"cw-stat-row\"><span>Sites visited</span><span id=\"cw-stat-sites\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Pages visited</span><span id=\"cw-stat-pages\">0</span></div>\n          <div class=\"cw-stat-row\"><span>Errors</span><span id=\"cw-stat-errors\" style=\"color: #ef4444;\">0</span></div>\n        </div>\n        <div class=\"cw-stat-group\">\n          <div class=\"cw-stat-title\">ADD SEARCH TERM</div>\n          <input id=\"cw-add-term\" type=\"text\" placeholder=\"e.g. Winamp 5.8\" style=\"\n            width: 100%; padding: 6px 8px; background: #0f172a; border: 1px solid #334155;\n            border-radius: 4px; color: #e0e0e0; font-size: 12px; margin-bottom: 6px; box-sizing: border-box;\n          \">\n          <button id=\"cw-btn-add\" class=\"cw-btn\" style=\"width: 100%; font-size: 11px;\">+ Add Term</button>\n        </div>\n      </div>\n\n      <!-- Right: tabbed view — LIVE LOG stays, TERMS tab added -->\n      <div style=\"flex: 1; display: flex; flex-direction: column; overflow: hidden;\">\n\n        <!-- Tab bar -->\n        <div style=\"display: flex; align-items: center; background: #0a0e17; border-bottom: 1px solid #1e293b; padding: 0 8px;\">\n          <button id=\"cw-tab-log\" style=\"\n            padding: 6px 14px; background: none; border: none; border-bottom: 2px solid #0ea5e9;\n            color: #0ea5e9; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;\n            cursor: pointer; text-transform: uppercase;\n          \">LIVE LOG</button>\n          <button id=\"cw-tab-terms\" style=\"\n            padding: 6px 14px; background: none; border: none; border-bottom: 2px solid transparent;\n            color: #475569; font-family: 'Orbitron', sans-serif; font-size: 10px; letter-spacing: 2px;\n            cursor: pointer; text-transform: uppercase;\n          \">TERMS</button>\n          <span id=\"cw-current-url\" style=\"margin-left: 10px; font-size: 10px; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;\"></span>\n        </div>\n\n        <!-- LIVE LOG view (stays exactly as before) -->\n        <div id=\"cw-log-view\" style=\"flex: 1; display: flex; flex-direction: column; overflow: hidden;\">\n          <div id=\"cw-log\" style=\"\n            flex: 1; overflow-y: auto; padding: 8px 12px;\n            font-family: 'Consolas', 'Courier New', monospace;\n            font-size: 11px; line-height: 1.6;\n            background: #060a12;\n          \"></div>\n        </div>\n\n        <!-- TERMS view (hidden by default) -->\n        <div id=\"cw-terms-view\" style=\"flex: 1; display: none; flex-direction: column; overflow: hidden; background: #060a12;\">\n          <!-- Terms toolbar -->\n          <div style=\"display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #1e293b; background: #0a0e17;\">\n            <select id=\"cw-term-filter\" style=\"\n              background: #0f172a; border: 1px solid #334155; color: #e0e0e0;\n              padding: 4px 8px; border-radius: 4px; font-size: 11px; flex: 1;\n            \"><option value=\"__all__\">All Categories</option></select>\n            <span id=\"cw-term-count\" style=\"color: #475569; font-size: 11px; white-space: nowrap;\"></span>\n            <button id=\"cw-btn-remove-selected\" style=\"\n              padding: 4px 10px; background: #7f1d1d; border: 1px solid #ef4444;\n              color: #fca5a5; border-radius: 4px; font-size: 11px; cursor: pointer;\n            \">Remove Selected</button>\n          </div>\n          <!-- Terms list -->\n          <div id=\"cw-term-list\" style=\"flex: 1; overflow-y: auto; padding: 4px 12px;\"></div>\n        </div>\n\n      </div>\n    </div>\n  ";
   var _0x451939 = document.getElementById("browser-area");
   if (_0x451939) {
     _0x451939.appendChild(_0x1a5b92);
@@ -2301,13 +2301,31 @@ function createCrawlerPanel() {
     document.body.appendChild(_0x1a5b92);
   }
   document.getElementById("cw-btn-start").onclick = function () {
-    var _0x1b4251 = document.getElementById("cw-term-filter");
-    var _0x3c32c1 = _0x1b4251 ? _0x1b4251.value : "__all__";
-    var _0x2ddcbd = _0x3c32c1 !== "__all__" ? {
-      category: _0x3c32c1
-    } : undefined;
+    // Collect ticked terms first
+    var checkedBoxes = document.querySelectorAll(".cw-term-check:checked");
+    var selectedTerms = [];
+    checkedBoxes.forEach(function(cb) {
+      var row = cb.closest("[data-term]");
+      if (row) {
+        selectedTerms.push({
+          term: row.getAttribute("data-term"),
+          category: row.getAttribute("data-cat")
+        });
+      }
+    });
+
+    var opts;
+    if (selectedTerms.length > 0) {
+      opts = { selectedTerms: selectedTerms };
+    } else {
+      // No terms ticked — fall back to category filter
+      var filterEl = document.getElementById("cw-term-filter");
+      var cat = filterEl ? filterEl.value : "__all__";
+      opts = cat !== "__all__" ? { category: cat } : undefined;
+    }
+
     if (window.veloce) {
-      window.veloce.crawlerStart(_0x2ddcbd);
+      window.veloce.crawlerStart(opts);
     }
     setCrawlerButtons("running");
   };
@@ -2330,6 +2348,31 @@ function createCrawlerPanel() {
   };
   document.getElementById("cw-btn-close").onclick = function () {
     toggleCrawlerPanel();
+  };
+  document.getElementById("cw-btn-clear").onclick = function () {
+    if (!window.veloce || !window.veloce.crawlerClearPatterns) return;
+    if (!confirm('Clear ALL discovered patterns and links?\nThis cannot be undone.')) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '🗑 Clearing...';
+    window.veloce.crawlerClearPatterns().then(function(res) {
+      btn.disabled = false;
+      btn.textContent = '🗑 Clear DB';
+      if (res.ok) {
+        // Reset stats display
+        ['cw-stat-patterns','cw-stat-files','cw-stat-domains'].forEach(function(id) {
+          var el = document.getElementById(id); if (el) el.textContent = '0';
+        });
+        var logEl = document.getElementById('cw-log');
+        if (logEl) logEl.innerHTML = '<div style="color:#22c55e;padding:4px 0;">🗑 Cleared ' + (res.cleared || 0) + ' patterns. DB is fresh.</div>';
+      } else {
+        alert('Failed to clear: ' + (res.error || 'unknown error'));
+      }
+    }).catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = '🗑 Clear DB';
+      alert('Error: ' + e.message);
+    });
   };
   document.getElementById("cw-btn-add").onclick = function () {
     var _0x24d8f9 = document.getElementById("cw-add-term");

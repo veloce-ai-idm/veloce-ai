@@ -22,12 +22,17 @@ const netNode = require('net');  // Node TCP for proxy check (Electron net is fo
 const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const crypto = require('crypto');
-const socks5Bridge = require('./socks5-bridge');
+let socks5Bridge = null;
+try { socks5Bridge = require('./socks5-bridge'); } catch (_) { /* BitBrowser proxy removed */ }
 
 // ── Path resolution — __dirname is inside read-only app.asar in production builds ──
-var APPDATA = __dirname;  // Writable files (patterns.json, cookies, crawler state)
+var RESOURCES = __dirname;           // Bundled assets (ytdlp_helper.py, ffmpeg, icon, html, preloads)
+var APPDATA = __dirname;             // Writable files (patterns.json, cookies, crawler state)
+var IS_PACKAGED = false;
 app.on('ready', function() {
   if (app.isPackaged) {
+    IS_PACKAGED = true;
+    RESOURCES = process.resourcesPath;
     APPDATA = app.getPath('userData');
     try { fs.mkdirSync(APPDATA, { recursive: true }); } catch (_) {}
     // Seed writable files from the asar into userData on first run
@@ -856,38 +861,39 @@ function remuxToMp4(tsPath) {
   }
 
   return new Promise(function(resolve) {
-    console.log('[Veloce] Remuxing to MP4 (AAC audio for universal playback): ' + mp4Path);
+    console.log('[Veloce] Remuxing to MP4: ' + mp4Path);
 
-    // -c:v copy = keep video as-is (fast)
-    // -c:a aac -b:a 192k = convert audio to AAC (plays on ALL players)
+    // Fast path: stream copy (no re-encoding, near-instant)
+    // -c copy = copy all streams as-is
+    // -bsf:a aac_adtstoasc = fix AAC bitstream for MP4 container (TS uses ADTS)
     // -movflags +faststart = metadata at start for instant playback
-    var args = ['-i', tsPath, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', mp4Path];
-    var proc = require('child_process').spawn(ffmpegPath, args, { stdio: 'pipe' });
+    var argsFast = ['-i', tsPath, '-c', 'copy', '-bsf:a', 'aac_adtstoasc', '-movflags', '+faststart', '-y', mp4Path];
+    var proc = require('child_process').spawn(ffmpegPath, argsFast, { stdio: 'pipe' });
 
     var timedOut = false;
     var timer = setTimeout(function() {
       timedOut = true;
       proc.kill();
-    }, 600000);  // 10 min timeout
+    }, 120000);  // 2 min timeout for stream copy (should be instant)
 
     proc.on('close', function(code) {
       clearTimeout(timer);
       if (!timedOut && code === 0 && fs.existsSync(mp4Path) && fs.statSync(mp4Path).size > 0) {
         fs.unlinkSync(tsPath);
-        console.log('[Veloce] MP4 created: ' + mp4Path);
+        console.log('[Veloce] MP4 created (stream copy): ' + mp4Path);
         resolve(mp4Path);
       } else {
-        // Fallback: try stream copy (no audio re-encode)
-        console.log('[Veloce] Remux with AAC failed, trying stream copy...');
-        var args2 = ['-i', tsPath, '-c', 'copy', '-movflags', '+faststart', '-y', mp4Path];
+        // Fallback: re-encode audio to AAC for maximum player compatibility
+        console.log('[Veloce] Stream copy failed, re-encoding audio to AAC...');
+        var args2 = ['-i', tsPath, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-y', mp4Path];
         var proc2 = require('child_process').spawn(ffmpegPath, args2, { stdio: 'pipe' });
-        var timer2 = setTimeout(function() { proc2.kill(); }, 300000);
+        var timer2 = setTimeout(function() { proc2.kill(); }, 600000);
 
         proc2.on('close', function(code2) {
           clearTimeout(timer2);
           if (code2 === 0 && fs.existsSync(mp4Path) && fs.statSync(mp4Path).size > 0) {
             fs.unlinkSync(tsPath);
-            console.log('[Veloce] MP4 created (stream copy): ' + mp4Path);
+            console.log('[Veloce] MP4 created (AAC re-encode): ' + mp4Path);
             resolve(mp4Path);
           } else {
             console.log('[Veloce] Remux failed — keeping .ts file');
@@ -1042,7 +1048,8 @@ function streamSegment(url, startOffset, endByte, fd, stallTimeout, onData) {
         });
 
         res.on('end', function() {
-          finish(true);
+          var expected = endByte - startOffset + 1;
+          finish(bytesWritten >= expected);
         });
 
         res.on('error', function() {
@@ -1502,12 +1509,12 @@ function setupBrowserSession() {
   console.log('[Veloce] Stealth preload: ' + preloadPath + ' (exists: ' + fs.existsSync(preloadPath) + ')');
 
   // ── Clean user agent ──
-  var CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+  var CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
   browserSession.setUserAgent(CHROME_UA);
 
   // ══════════════════════════════════════════════════════════════
   // ── CRITICAL: Clean sec-ch-ua HTTP headers ──
-  // Electron sends sec-ch-ua: "Chromium";v="122", "Electron";v="29"
+  // Electron sends sec-ch-ua: "Chromium";v="130", "Electron";v="29"
   // Cloudflare checks these BEFORE any JavaScript runs (server-side).
   // Must replace with pure Chrome headers.
   // ══════════════════════════════════════════════════════════════
@@ -1515,13 +1522,13 @@ function setupBrowserSession() {
     var headers = details.requestHeaders;
 
     // Override Client Hints to remove "Electron" brand
-    headers['sec-ch-ua'] = '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"';
+    headers['sec-ch-ua'] = '"Chromium";v="130", "Not(A:Brand";v="24", "Google Chrome";v="130"';
     headers['sec-ch-ua-mobile'] = '?0';
     headers['sec-ch-ua-platform'] = '"Windows"';
 
     // Full version list (sent on high-entropy requests)
     if (headers['sec-ch-ua-full-version-list']) {
-      headers['sec-ch-ua-full-version-list'] = '"Chromium";v="122.0.6261.112", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.112"';
+      headers['sec-ch-ua-full-version-list'] = '"Chromium";v="130.0.6723.44", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="130.0.6723.44"';
     }
 
     // Ensure User-Agent is clean (no "Electron" substring)
@@ -1739,7 +1746,7 @@ function formatETA(seconds) {
 var profileStore = require('./profileStore');
 var profileProxyAuth = new Map(); // webContents.id -> { username, password } for proxy login (bible §6)
 
-var CHROME_UA_PROFILE = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+var CHROME_UA_PROFILE = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
 /** Build proxyRules only (no credentials - Electron rejects user:pass in proxyRules and throws ERR_NO_SUPPORTED_PROXIES). */
 function buildProxyRules(proxy) {
@@ -1813,11 +1820,11 @@ function setupProfileSession(profile) {
 
     ses.webRequest.onBeforeSendHeaders(function(details, callback) {
       var headers = details.requestHeaders || {};
-      headers['sec-ch-ua'] = '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"';
+      headers['sec-ch-ua'] = '"Chromium";v="130", "Not(A:Brand";v="24", "Google Chrome";v="130"';
       headers['sec-ch-ua-mobile'] = '?0';
       headers['sec-ch-ua-platform'] = '"Windows"';
       if (headers['sec-ch-ua-full-version-list']) {
-        headers['sec-ch-ua-full-version-list'] = '"Chromium";v="122.0.6261.112", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="122.0.6261.112"';
+        headers['sec-ch-ua-full-version-list'] = '"Chromium";v="130.0.6723.44", "Not(A:Brand";v="24.0.0.0", "Google Chrome";v="130.0.6723.44"';
       }
       headers['User-Agent'] = ua;
       callback({ requestHeaders: headers });
@@ -2286,6 +2293,20 @@ ipcMain.handle('start-download', async function(event, data) {
 
   // ── Route 1: HLS streams — built-in downloader with decryption ──
   if (isHLS || (isStream && !isYtdlp)) {
+    // Detect CDN hosts that rate-limit — use fewer tunnels
+    var cdnConcurrency = activeConcurrency;
+    var cdnHosts = ['rumble.cloud'];
+    for (var ci = 0; ci < cdnHosts.length; ci++) {
+      if (lower.indexOf(cdnHosts[ci]) !== -1) {
+        cdnConcurrency = Math.min(cdnConcurrency, 3);
+        console.log('[Veloce] CDN detected (' + cdnHosts[ci] + ') — limiting to ' + cdnConcurrency + ' tunnels');
+        break;
+      }
+    }
+    // Temporarily override concurrency for this download
+    var savedConcurrency = activeConcurrency;
+    if (cdnConcurrency < activeConcurrency) activeConcurrency = cdnConcurrency;
+    
     console.log('[Veloce] HLS download (' + activeConcurrency + ' tunnels, AES decryption): ' + url.slice(0, 100));
     var tsPath = path.join(downloadsDir, safeName + '.ts');
 
@@ -2319,6 +2340,7 @@ ipcMain.handle('start-download', async function(event, data) {
       if (cancelledDownloads[safeName]) {
         console.log('[Veloce HLS] Download was cancelled — skipping remux, cleaning up');
         delete cancelledDownloads[safeName];
+        if (savedConcurrency && savedConcurrency !== activeConcurrency) activeConcurrency = savedConcurrency;
         delete activeDownloads[urlKey];
         // Delete the partial .ts file
         try { if (fs.existsSync(tsPath)) fs.unlinkSync(tsPath); } catch (e) {}
@@ -2337,6 +2359,11 @@ ipcMain.handle('start-download', async function(event, data) {
 
       // Clean up cancel flag if it was set
       delete cancelledDownloads[safeName];
+
+      // Restore original concurrency if we limited it for CDN
+      if (savedConcurrency && savedConcurrency !== activeConcurrency) {
+        activeConcurrency = savedConcurrency;
+      }
 
       // Remux to MP4 if ffmpeg available
       // Tell the UI we're remuxing so users don't think it's stuck
@@ -2412,6 +2439,31 @@ ipcMain.handle('start-download', async function(event, data) {
 
     var totalSize = headResult.size || 0;
     var useBoosters = headResult.resumable && totalSize >= DIRECT_BOOSTER_MIN_SIZE;
+
+    // If HEAD didn't confirm range support but file is large enough, probe with a Range GET
+    // Many CDNs (Hugging Face, Cloudflare R2) support ranges but don't advertise in HEAD
+    if (!useBoosters && totalSize >= 10485760) {  // 10 MB minimum
+      try {
+        var probeResult = await new Promise(function(resolve) {
+          var req = net.request({
+            method: 'GET', url: url,
+            session: browserSession || session.defaultSession,
+          });
+          req.setHeader('Range', 'bytes=0-0');
+          req.on('response', function(res) {
+            var supportsRanges = res.statusCode === 206;
+            res.destroy();
+            resolve(supportsRanges);
+          });
+          req.on('error', function() { resolve(false); });
+          req.end();
+        });
+        if (probeResult) {
+          useBoosters = true;
+          console.log('[Veloce] Range probe succeeded — enabling boosters for ' + (totalSize / 1048576).toFixed(1) + ' MB file');
+        }
+      } catch (e) {}
+    }
 
     if (useBoosters) {
       console.log('[Veloce] Direct download with ' + activeConcurrency + ' workers: ' + (totalSize / 1048576).toFixed(1) + ' MB');
@@ -2790,10 +2842,10 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
   var ytDlpCmd, ytDlpArgs;
   if (useExe) {
     ytDlpCmd = path.join(process.resourcesPath, 'yt-dlp.exe');
-    ytDlpArgs = ['-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress'];
+    ytDlpArgs = ['-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'];
   } else {
     ytDlpCmd = 'python';
-    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress'];
+    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'];
   }
 
   if (isAudio) {
@@ -4112,7 +4164,7 @@ function searchLocalPatterns(query, maxResults) {
 
   try {
     // 1. Search crawler-links.jsonl first (lighter, faster)
-    var linksPath = path.join(__dirname, 'crawler-links.jsonl');
+    var linksPath = path.join(APPDATA, 'crawler-links.jsonl');
     if (fs.existsSync(linksPath)) {
       var lines = fs.readFileSync(linksPath, 'utf8').split('\n');
       for (var i = 0; i < lines.length; i++) {
@@ -4435,7 +4487,7 @@ ipcMain.handle('crawler-start', function(event, opts) {
   if (!veloceCrawler) {
     veloceCrawler = new VeloceCrawler({
       patternsPath: path.join(APPDATA, 'patterns.json'),
-      termsPath: path.join(__dirname, 'training-terms.json'),
+      termsPath: path.join(APPDATA, 'training-terms.json'),
       browserSession: browserSession || session.defaultSession,
     });
     veloceCrawler.onUpdate = function(data) {
@@ -4444,9 +4496,8 @@ ipcMain.handle('crawler-start', function(event, opts) {
       }
     };
   }
-  var categoryFilter = (opts && opts.category) || null;
-  veloceCrawler.start(categoryFilter);
-  console.log('[Veloce] Crawler started' + (categoryFilter ? ' (category: ' + categoryFilter + ')' : ''));
+  veloceCrawler.start(opts);
+  console.log('[Veloce] Crawler started' + (opts ? ' (selectedTerms: ' + (opts.selectedTerms ? opts.selectedTerms.length : 0) + ', category: ' + (opts.category || 'all') + ')' : ''));
   return { ok: true };
 });
 
@@ -4482,7 +4533,7 @@ ipcMain.handle('crawler-add-term', function(event, term, category) {
     // Create temp instance just to add the term
     var tmp = new VeloceCrawler({
       patternsPath: path.join(APPDATA, 'patterns.json'),
-      termsPath: path.join(__dirname, 'training-terms.json'),
+      termsPath: path.join(APPDATA, 'training-terms.json'),
     });
     tmp.addSearchTerm(term, category);
   }
@@ -4498,8 +4549,43 @@ ipcMain.handle('crawler-export', function() {
   return { domains: {}, meta: {} };
 });
 
+ipcMain.handle('crawler-clear-patterns', function() {
+  try {
+    var pPath = path.join(APPDATA, 'patterns.json');
+    var linksPath = path.join(APPDATA, 'crawler-links.jsonl');
+
+    // Count before wipe so we can report
+    var cleared = 0;
+    if (fs.existsSync(pPath)) {
+      try {
+        var old = JSON.parse(fs.readFileSync(pPath, 'utf8'));
+        cleared = (old.meta && old.meta.totalPatterns) ? old.meta.totalPatterns : 0;
+      } catch(e) {}
+      // Wipe patterns.json
+      var blank = { domains: {}, meta: { totalPatterns: 0, totalFiles: 0, totalPages: 0, startedAt: null, lastRun: null } };
+      fs.writeFileSync(pPath, JSON.stringify(blank, null, 2), 'utf8');
+    }
+    // Wipe crawler-links.jsonl
+    if (fs.existsSync(linksPath)) fs.writeFileSync(linksPath, '', 'utf8');
+
+    // Reset in-memory crawler state too
+    if (veloceCrawler) {
+      veloceCrawler.patterns = { domains: {}, meta: { totalPatterns: 0, totalFiles: 0, totalPages: 0, startedAt: null, lastRun: null } };
+      veloceCrawler.stats.patternsFound = 0;
+      veloceCrawler.stats.filesFound = 0;
+      veloceCrawler.sendUpdate();
+    }
+
+    console.log('[Veloce] Crawler patterns cleared (' + cleared + ' patterns wiped)');
+    return { ok: true, cleared: cleared };
+  } catch (e) {
+    console.log('[Veloce] Failed to clear patterns: ' + e.message);
+    return { ok: false, error: e.message };
+  }
+});
+
 // ── Training Term Management IPCs ──
-var crawlerTermsPath = path.join(__dirname, 'training-terms.json');
+var crawlerTermsPath = path.join(APPDATA, 'training-terms.json');
 
 ipcMain.handle('crawler-get-terms', function() {
   try {

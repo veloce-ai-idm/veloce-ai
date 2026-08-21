@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('veloce', {
   crawlerGetTerms: () => ipcRenderer.invoke('crawler-get-terms'),
   crawlerRemoveTerm: (term, category) => ipcRenderer.invoke('crawler-remove-term', term, category),
   crawlerRemoveBulk: (items) => ipcRenderer.invoke('crawler-remove-bulk', items),
+  crawlerClearPatterns: () => ipcRenderer.invoke('crawler-clear-patterns'),
 
   // ── Bit-style Profiles (multi-profile browser) ──
   profiles: {
