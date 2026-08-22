@@ -1012,9 +1012,15 @@ function streamSegment(url, startOffset, endByte, fd, stallTimeout, onData) {
         },
         agent: parsed.protocol === 'https:' ? httpsAgent : httpAgent,
       }, function(res) {
-        // Follow redirects
+        // Follow redirects. Mark this call done and disarm the stall timer FIRST:
+        // otherwise the outer timer can fire while the delegated request is still
+        // streaming, resolve with bytesWritten:0, and leave an orphaned stream
+        // writing to fd and inflating the caller's byte counters — which is how
+        // segments ended up with skipped ranges (zero-filled holes) in the file.
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           res.resume();
+          done = true;
+          if (stallTimer) clearTimeout(stallTimer);
           streamSegment(res.headers.location, startOffset, endByte, fd, stallTimeout, onData).then(resolve);
           return;
         }
@@ -1099,7 +1105,11 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
     var segStart = i * segmentSize;
     var segEnd = Math.min(segStart + segmentSize - 1, totalSize - 1);
     if (segStart > totalSize - 1) break;
-    segments.push({ id: i, start: segStart, end: segEnd, bytesWritten: 0, finished: false });
+    // pos = the next byte this segment still needs. Everything from `start` up to
+    // `pos` is on disk and contiguous. The fill-holes pass resumes from `pos`
+    // rather than start+bytesWritten, because bytesWritten can over-count (e.g. a
+    // retried range) and would then skip past bytes that were never written.
+    segments.push({ id: i, start: segStart, end: segEnd, pos: segStart, bytesWritten: 0, finished: false });
   }
 
   console.log('[Veloce DL] TRUE IDM mode: ' + segments.length + ' persistent connections, ' +
@@ -1180,6 +1190,7 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
       );
 
       currentPos += result.bytesWritten;
+      seg.pos = currentPos;
 
       if (result.finished) {
         seg.finished = true;
@@ -1212,7 +1223,7 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   var holes = segments.filter(function(s) { return !s.finished; });
   for (var fi = 0; fi < holes.length && !aborted; fi++) {
     var hole = holes[fi];
-    var resumeAt = hole.start + hole.bytesWritten;
+    var resumeAt = hole.pos;
     console.log('[Veloce DL] Re-fetching dropped segment ' + hole.id + ' from ' + (resumeAt / 1048576).toFixed(1) + ' MB');
     for (var att = 0; att < 3 && resumeAt <= hole.end && !aborted; att++) {
       if (cancelKey && cancelledDownloads[cancelKey]) { aborted = true; break; }
@@ -1225,6 +1236,7 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
         }
       );
       resumeAt += holeResult.bytesWritten;
+      hole.pos = resumeAt;
       if (holeResult.finished) {
         hole.finished = true;
         console.log('[Veloce DL] Segment ' + hole.id + ' recovered');
@@ -1238,7 +1250,10 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   reportProgress();  // final report
 
   fs.closeSync(fd);
-  var allDone = segments.every(function(s) { return s.finished; });
+  // A segment only counts as done if its write cursor passed its last byte.
+  // Checking `pos` as well as `finished` means a skipped range can never be
+  // mistaken for a complete segment.
+  var allDone = segments.every(function(s) { return s.finished && s.pos > s.end; });
   if (allDone) {
     console.log('[Veloce DL] ✓ Complete: ' + (totalBytes / 1048576).toFixed(1) + ' MB');
   } else {
