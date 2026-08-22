@@ -1221,6 +1221,7 @@ async function downloadDirectWithBoosters(url, outPath, totalSize, onProgress, c
   // A dropped connection often succeeds on a fresh one (transient CDN reset).
   // Re-attempt each unfinished segment's remaining range before giving up.
   var holes = segments.filter(function(s) { return !s.finished; });
+  if (cancelKey && cancelledDownloads[cancelKey]) aborted = true;
   for (var fi = 0; fi < holes.length && !aborted; fi++) {
     var hole = holes[fi];
     var resumeAt = hole.pos;
@@ -2338,6 +2339,15 @@ ipcMain.handle('start-download', async function(event, data) {
   if (fileExt) nameNoExt = baseName.slice(0, baseName.length - fileExt.length);
   nameNoExt = nameNoExt.replace(/[^a-zA-Z0-9._-]/g, '_');
   var safeName = nameNoExt + '_' + uniqueId + fileExt;
+
+  // Clear any stale cancel flags for this file before starting. A cancel from a
+  // previous attempt (or one the renderer re-fires for old rows after a page
+  // refresh) lands under the display name, and the booster workers check that
+  // same key — so without this reset the next download of the same file aborts
+  // instantly at 0 MB.
+  delete cancelledDownloads[baseName];
+  delete cancelledDownloads[safeName];
+  if (dlId) delete cancelledDownloads[dlId];
 
   var lower = url.toLowerCase();
   var isHLS = lower.indexOf('.m3u8') !== -1;
