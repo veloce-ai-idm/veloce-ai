@@ -73,7 +73,7 @@ fs.writeFileSync(path.join(STAGING, 'loader.js'),
 // 5. Staging package.json (runtime deps only: bytenode for .jsc, socks for the proxy bridge)
 fs.writeFileSync(path.join(STAGING, 'package.json'), JSON.stringify({
   name: 'veloce-ai-idm30',
-  version: '1.0.2',
+  version: require('./package.json').version,
   description: 'VELOCE AI IDM — AI-powered download manager with built-in browser',
   main: 'loader.js',
   author: 'Veloce AI',
