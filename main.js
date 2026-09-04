@@ -2711,6 +2711,9 @@ async function ytdlpDownload(url, downloadsDir, safeName, referer) {
       '-m', 'yt_dlp', '-o', outTemplate,
       '--no-warnings', '--no-check-certificates',
       '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      // YouTube block bypass (same as the Android app): mweb/android/ios resolve
+      // without cookies; the default web client hits the PO-token bot wall.
+      '--extractor-args', 'youtube:player_client=mweb,android,ios',
     ];
     if (referer) args.push('--referer', referer);
     args.push(url);
@@ -2874,6 +2877,9 @@ ipcMain.handle('ytdlp-extract', async function(event, url) {
       '-m', 'yt_dlp', '--dump-json',
       '--no-warnings', '--no-check-certificates', '--no-playlist',
       '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      // YouTube block bypass (same as the Android app): mweb/android/ios resolve
+      // without cookies; the default web client hits the PO-token bot wall.
+      '--extractor-args', 'youtube:player_client=mweb,android,ios',
       url
     ];
 
@@ -2935,12 +2941,17 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
   // Use bundled yt-dlp.exe if available, otherwise fall back to Python
   var useExe = fs.existsSync(path.join(process.resourcesPath, 'yt-dlp.exe'));
   var ytDlpCmd, ytDlpArgs;
+  // YouTube block bypass (same as the Android app): mweb/android/ios clients
+  // resolve WITHOUT a logged-in cookie file, whereas the default web client
+  // triggers the "sign in to confirm you're not a bot" PO-token wall. The
+  // extractor falls through these clients until one returns formats.
+  var ytBypass = ['--extractor-args', 'youtube:player_client=mweb,android,ios'];
   if (useExe) {
     ytDlpCmd = path.join(process.resourcesPath, 'yt-dlp.exe');
-    ytDlpArgs = ['-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'];
+    ytDlpArgs = ['-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
   } else {
     ytDlpCmd = 'python';
-    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'];
+    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
   }
 
   if (isAudio) {
