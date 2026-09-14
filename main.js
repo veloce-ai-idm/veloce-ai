@@ -4580,7 +4580,67 @@ app.whenReady().then(function() {
   console.log('[Veloce] App ready — Electron ' + process.versions.electron);
   console.log('[Veloce] HLS downloader: ' + activeConcurrency + ' tunnels, AES-128 decryption enabled');
   console.log('[Veloce] Cloudflare Turnstile: stealth preloads active on all frames');
+
+  // ── UPDATE CHECK — tell user a newer build is live, one-click install ──
+  setTimeout(function() { checkForUpdates(); }, 2500);
 });
+
+// ── Update check helpers (GitHub releases) ──
+var UPDATE_REPO_API = 'https://api.github.com/repos/veloce-ai-idm/veloce-ai/releases/latest';
+var UPDATE_DL_BASE = 'https://github.com/veloce-ai-idm/veloce-ai/releases/download/';
+
+function updateVersionNum(ver) {
+  return String(ver || '0').replace(/^v/, '').split('.').map(function(n){ return parseInt(n, 10) || 0; });
+}
+function updateIsNewer(cur, latest) {
+  var a = updateVersionNum(cur), b = updateVersionNum(latest);
+  for (var i = 0; i < 3; i++) {
+    if ((b[i] || 0) > (a[i] || 0)) return true;
+    if ((b[i] || 0) < (a[i] || 0)) return false;
+  }
+  return false;
+}
+function updateDownload(url, dest, cb) {
+  var fs2 = require('fs'), https = require('https');
+  var file = fs2.createWriteStream(dest);
+  var req = https.get(url, { headers: { 'User-Agent': 'veloce-ai-idm' } }, function(res) {
+    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+      return updateDownload(res.headers.location, dest, cb);
+    }
+    if (res.statusCode !== 200) {
+      try { file.close(); fs2.unlinkSync(dest); } catch (_) {}
+      return cb(new Error('HTTP ' + res.statusCode));
+    }
+    res.pipe(file);
+    file.on('finish', function() { file.close(); cb(null, dest); });
+    file.on('error', function(err) { file.close(); try { fs2.unlinkSync(dest); } catch (_) {} cb(err); });
+  });
+  req.on('error', function(err) { try { file.close(); fs2.unlinkSync(dest); } catch (_) {} cb(err); });
+}
+async function checkForUpdates() {
+  try {
+    var resp = await net.fetch(UPDATE_REPO_API, { headers: { 'User-Agent': 'veloce-ai-idm' } });
+    if (!resp.ok) return;
+    var rel = await resp.json();
+    var latest = String(rel.tag_name || '').replace(/^v/, '').trim();
+    var cur = app.getVersion();
+    if (!latest || !updateIsNewer(cur, latest)) return;
+    var asset = (rel.assets || []).find(function(x){ return /\.exe$/i.test(x.name || ''); });
+    if (!asset) return;
+    var choice = await dialog.showMessageBox(mainWindow, {
+      type: 'info', title: 'Update available',
+      message: 'A new version of VELOCE AI (' + latest + ') is available.',
+      detail: 'You are on version ' + cur + '. Download and install the update now?',
+      buttons: ['Update now', 'Later'], defaultId: 0, cancelId: 1, noLink: true
+    });
+    if (choice.response !== 0) return;
+    var dest = path.join(app.getPath('temp'), 'VELOCE-AI-IDM-Setup-' + latest + '.exe');
+    updateDownload(asset.browser_download_url || (UPDATE_DL_BASE + rel.tag_name + '/' + asset.name), dest, function(err, file) {
+      if (err || !file) { try { shell.openExternal(asset.browser_download_url); } catch (_) {} return; }
+      shell.openPath(file);
+    });
+  } catch (e) { }
+}
 
 // ── Data Miner IPC (plan, save, open-folder) ──
 // Scraping runs renderer-side in Veloce's real stealth webview.
@@ -4780,12 +4840,14 @@ var LICENSE_FILE = path.join(app.getPath('userData'), '.veloce_lic');
 
 function getMachineId() {
   try {
-    var mb = require('child_process').execSync('wmic baseboard get serialnumber', { encoding: 'utf8', timeout: 5000 });
-    var cpu = require('child_process').execSync('wmic cpu get processorid', { encoding: 'utf8', timeout: 5000 });
-    var raw = (mb.split('\n')[2] || '').trim() + '|' + (cpu.split('\n')[2] || '').trim();
+    var mb = require('child_process').execSync('powershell -NoProfile -Command "(Get-CimInstance Win32_BaseBoard).SerialNumber"', { encoding: 'utf8', timeout: 10000 });
+    var cpu = require('child_process').execSync('powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).ProcessorId"', { encoding: 'utf8', timeout: 10000 });
+    var raw = (mb || '').trim() + '|' + (cpu || '').trim();
+    if (!raw || raw === '|') throw new Error('empty-hwid');
     return require('crypto').createHash('sha256').update(raw).digest('hex').slice(0, 32);
   } catch (e) {
-    return 'UNKNOWN-' + Date.now().toString(36);
+    var host = require('os').hostname() || 'veloce-host';
+    return require('crypto').createHash('sha256').update('fallback:' + host).digest('hex').slice(0, 32);
   }
 }
 
