@@ -2708,12 +2708,12 @@ async function ytdlpDownload(url, downloadsDir, safeName, referer) {
   return new Promise(async function(resolve, reject) {
     var outTemplate = path.join(downloadsDir, safeName + '.%(ext)s');
     var args = [
-      '-m', 'yt_dlp', '-o', outTemplate,
+      '-m', 'yt_dlp', '-o', outTemplate, '--no-playlist',
       '--no-warnings', '--no-check-certificates',
       '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       // YouTube block bypass (same as the Android app): mweb/android/ios resolve
       // without cookies; the default web client hits the PO-token bot wall.
-      '--extractor-args', 'youtube:player_client=mweb,android,ios',
+      '--extractor-args', 'youtube:player_client=default,mweb,android,ios',
     ];
     if (referer) args.push('--referer', referer);
     args.push(url);
@@ -2851,9 +2851,9 @@ ipcMain.handle('ytdlp-extract', async function(event, url) {
   await exportCookies(url).catch(function() {});
 
   return new Promise(function(resolve) {
-    // Try bundled yt-dlp.exe first (no Python required)
-    var ytdlpExe = path.join(process.resourcesPath, 'yt-dlp.exe');
-    if (fs.existsSync(ytdlpExe)) {
+    // Prefer a self-updated yt-dlp.exe (userData/bin), fall back to the bundled one
+    var ytdlpExe = resolveYtDlp();
+    if (ytdlpExe) {
       var exeArgs = ['--dump-json', '--no-playlist', '--impersonate', 'chrome'];
       var cf = path.join(app.getPath('userData'), 'cookies.txt');
       if (fs.existsSync(cf)) { exeArgs.push('--cookies', cf); }
@@ -2879,7 +2879,7 @@ ipcMain.handle('ytdlp-extract', async function(event, url) {
       '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
       // YouTube block bypass (same as the Android app): mweb/android/ios resolve
       // without cookies; the default web client hits the PO-token bot wall.
-      '--extractor-args', 'youtube:player_client=mweb,android,ios',
+      '--extractor-args', 'youtube:player_client=default,mweb,android,ios',
       url
     ];
 
@@ -2938,20 +2938,20 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
   var safeName = sanitizeFilename(pageTitle).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80) + '_' + Date.now().toString().slice(-5);
   var outTemplate = path.join(downloadsDir, safeName + '.%(ext)s');
 
-  // Use bundled yt-dlp.exe if available, otherwise fall back to Python
-  var useExe = fs.existsSync(path.join(process.resourcesPath, 'yt-dlp.exe'));
-  var ytDlpCmd, ytDlpArgs;
+  // Prefer a self-updated yt-dlp.exe (userData/bin), fall back to the bundled one
+  var ytDlpCmd = resolveYtDlp();
+  var useExe = !!ytDlpCmd;
+  var ytDlpArgs;
   // YouTube block bypass (same as the Android app): mweb/android/ios clients
   // resolve WITHOUT a logged-in cookie file, whereas the default web client
   // triggers the "sign in to confirm you're not a bot" PO-token wall. The
   // extractor falls through these clients until one returns formats.
-  var ytBypass = ['--extractor-args', 'youtube:player_client=mweb,android,ios'];
+  var ytBypass = ['--extractor-args', 'youtube:player_client=default,mweb,android,ios'];
   if (useExe) {
-    ytDlpCmd = path.join(process.resourcesPath, 'yt-dlp.exe');
-    ytDlpArgs = ['-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
+    ytDlpArgs = ['-o', outTemplate, '--no-playlist', '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
   } else {
     ytDlpCmd = 'python';
-    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
+    ytDlpArgs = ['-m', 'yt_dlp', '-o', outTemplate, '--no-playlist', '--no-warnings', '--no-check-certificates', '--newline', '--progress', '--impersonate', 'chrome'].concat(ytBypass);
   }
 
   if (isAudio) {
@@ -2993,10 +2993,16 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
         ytDlpArgs.push('--cookies', cookieFile);
       }
     } catch (e) {}
-    var proc = spawn(ytDlpCmd, ytDlpArgs);
-    _ytdlpProcs[ytDlpId] = proc;
     var stdoutData = '';
     var stderrData = '';
+    // ── Generic retry ladder (no client names, no error strings — cannot rot) ──
+    // 1) as built   2) force the mobile fallback chain   3) fresh, no cookies
+    var attemptPlans = [
+      function(a) { return a.slice(); },
+      function(a) { return a.map(function(x){ return String(x).indexOf('youtube:player_client=') === 0 ? 'youtube:player_client=mweb,android,ios' : x; }); },
+      function(a) { var out = []; for (var j = 0; j < a.length; j++) { if (a[j] === '--cookies') { j++; continue; } out.push(a[j]); } return out; }
+    ];
+    var attempt = 0;
 
     function parseAndSendProgress(text) {
       // Split into lines — --newline gives one update per line
@@ -3025,6 +3031,11 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
       }
     }
 
+    function runAttempt() {
+    var proc = spawn(ytDlpCmd, attemptPlans[attempt](ytDlpArgs));
+    _ytdlpProcs[ytDlpId] = proc;
+    stdoutData = '';
+    stderrData = '';
     proc.stdout.on('data', function(chunk) {
       var text = chunk.toString();
       stdoutData += text;
@@ -3039,11 +3050,8 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
 
     proc.on('close', function(code) {
       // Detach after cancel: tracking data was already deleted by cancel handler.
-      // Check BEFORE we delete — cancel handler removes _ytdlpDirs first.
       var wasCancelled = !_ytdlpDirs[ytDlpId];
-      delete _ytdlpProcs[ytDlpId];
-      delete _ytdlpDirs[ytDlpId];
-      delete _ytdlpSafeNames[ytDlpId];
+      if (wasCancelled) return;
       // Find the actual output file
       var outputFile = '';
       var files = fs.readdirSync(downloadsDir);
@@ -3072,17 +3080,30 @@ ipcMain.handle('ytdlp-download-format', async function(event, data) {
           });
         }
 
+        delete _ytdlpProcs[ytDlpId];
+        delete _ytdlpDirs[ytDlpId];
+        delete _ytdlpSafeNames[ytDlpId];
         resolve({ ok: true, path: outputFile, filename: safeName, size: sizeStr });
+      } else if (attempt < attemptPlans.length - 1) {
+        attempt++;
+        console.log('[Veloce] yt-dlp attempt failed — retrying (' + (attempt + 1) + '/' + attemptPlans.length + ')');
+        setTimeout(runAttempt, 1200);
       } else {
+        delete _ytdlpProcs[ytDlpId];
+        delete _ytdlpDirs[ytDlpId];
+        delete _ytdlpSafeNames[ytDlpId];
         reject(new Error('yt-dlp error: ' + (stderrData || stdoutData).slice(-200)));
       }
     });
     proc.on('error', function(err) {
+      if (attempt < attemptPlans.length - 1) { attempt++; setTimeout(runAttempt, 1200); return; }
       delete _ytdlpProcs[ytDlpId];
       delete _ytdlpDirs[ytDlpId];
       delete _ytdlpSafeNames[ytDlpId];
-      reject(new Error('Failed to run python: ' + err.message));
+      reject(new Error('Failed to run yt-dlp: ' + err.message));
     });
+    }
+    runAttempt();
   });
 });
 
@@ -4583,6 +4604,8 @@ app.whenReady().then(function() {
 
   // ── UPDATE CHECK — tell user a newer build is live, one-click install ──
   setTimeout(function() { checkForUpdates(); }, 2500);
+  // ── SILENT yt-dlp SELF-UPDATE — keeps video downloads alive without an app rebuild ──
+  setTimeout(function() { checkYtDlpUpdate(); }, 6000);
 });
 
 // ── Update check helpers (GitHub releases) ──
@@ -4640,6 +4663,59 @@ async function checkForUpdates() {
       shell.openPath(file);
     });
   } catch (e) { }
+}
+
+// ── yt-dlp self-update (silent, no dialog) — keeps video downloads working
+//    without shipping a new installer when YouTube breaks yt-dlp ──
+function resolveYtDlp() {
+  try {
+    var upd = path.join(app.getPath('userData'), 'bin', 'yt-dlp.exe');
+    if (fs.existsSync(upd) && fs.statSync(upd).size > 1048576) return upd;
+  } catch (e) {}
+  try {
+    var bundled = path.join(process.resourcesPath, 'yt-dlp.exe');
+    if (fs.existsSync(bundled)) return bundled;
+  } catch (e) {}
+  return null;
+}
+function ytDlpVersionOf(exe) {
+  try {
+    var out = require('child_process').execSync('"' + exe + '" --version', { encoding: 'utf8', timeout: 15000, windowsHide: true });
+    return String(out || '').trim();
+  } catch (e) { return null; }
+}
+var YTDLP_REPO_API = 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest';
+var YTDLP_DL_URL = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe';
+function checkYtDlpUpdate() {
+  try {
+    var dest = path.join(app.getPath('userData'), 'bin', 'yt-dlp.exe');
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    try { fs.rmSync(dest + '.new', { force: true }); } catch (_) {}
+    net.fetch(YTDLP_REPO_API, { headers: { 'User-Agent': 'veloce-ai-idm' } })
+      .then(function(resp) { return (resp && resp.ok) ? resp.json() : null; })
+      .then(function(rel) {
+        if (!rel || !rel.tag_name) return;
+        var latest = String(rel.tag_name).trim();
+        var current = resolveYtDlp();
+        var cur = current ? ytDlpVersionOf(current) : null;
+        if (cur && cur === latest) { console.log('[Veloce] yt-dlp up to date (' + cur + ')'); return; }
+        console.log('[Veloce] yt-dlp update: ' + (cur || 'none') + ' -> ' + latest);
+        var tmp = dest + '.new';
+        updateDownload(YTDLP_DL_URL, tmp, function(err, file) {
+          if (err || !file) { console.log('[Veloce] yt-dlp update download failed'); return; }
+          try {
+            if (fs.statSync(file).size < 1048576) throw new Error('bad size');
+            fs.copyFileSync(file, dest);
+            fs.rmSync(file, { force: true });
+            console.log('[Veloce] yt-dlp self-updated to ' + latest);
+          } catch (e) {
+            try { fs.rmSync(file, { force: true }); } catch (_) {}
+            console.log('[Veloce] yt-dlp self-update write failed: ' + e.message);
+          }
+        });
+      })
+      .catch(function() {});
+  } catch (e) {}
 }
 
 // ── Data Miner IPC (plan, save, open-folder) ──
