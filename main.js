@@ -2296,6 +2296,12 @@ ipcMain.handle('proxy:check', function(event, proxy) {
 // ── End Bit-style profiles ──
 
 ipcMain.handle('start-download', async function(event, data) {
+  return startDownloadJob(data);
+});
+
+// Extracted so the update checker reuses the exact same download path:
+// one job, shown in the downloads panel with progress and the finished popup.
+async function startDownloadJob(data) {
   // ── Security: Rate limit ──
   if (!checkRateLimit('start-download')) {
     return { success: false, error: 'Too many download requests — slow down' };
@@ -2645,7 +2651,7 @@ ipcMain.handle('start-download', async function(event, data) {
     delete activeDownloads[urlKey];
     throw err;
   }
-});
+}
 
 // ── Export ALL browser cookies for yt-dlp ──
 async function exportCookiesForYtDlp() {
@@ -4653,14 +4659,21 @@ async function checkForUpdates() {
     var choice = await dialog.showMessageBox(mainWindow, {
       type: 'info', title: 'Update available',
       message: 'A new version of VELOCE AI (' + latest + ') is available.',
-      detail: 'You are on version ' + cur + '. Download and install the update now?',
+      detail: 'You are on version ' + cur + '.\n\nThe new setup downloads into your Downloads folder. When it finishes, open the folder and run it to install.',
       buttons: ['Update now', 'Later'], defaultId: 0, cancelId: 1, noLink: true
     });
     if (choice.response !== 0) return;
-    var dest = path.join(app.getPath('temp'), 'VELOCE-AI-IDM-Setup-' + latest + '.exe');
-    updateDownload(asset.browser_download_url || (UPDATE_DL_BASE + rel.tag_name + '/' + asset.name), dest, function(err, file) {
-      if (err || !file) { try { shell.openExternal(asset.browser_download_url); } catch (_) {} return; }
-      shell.openPath(file);
+    // Hand the setup to the app's own downloader, so an update appears in the downloads
+    // panel with progress and the usual finished popup (Open folder -> run the setup).
+    // The previous path wrote to %TEMP% via its own https.get and then shell.openPath'd
+    // a file it still held open - the redirect branch leaked the first write stream -
+    // which is what produced "Another program is currently using this file."
+    startDownloadJob({
+      url: asset.browser_download_url || (UPDATE_DL_BASE + rel.tag_name + '/' + asset.name),
+      filename: asset.name || ('VELOCE-AI-IDM-Setup-' + latest + '.exe'),
+      referer: 'https://github.com/veloce-ai-idm/veloce-ai/releases',
+      pageTitle: 'VELOCE AI update ' + latest,
+      id: null
     });
   } catch (e) { }
 }
