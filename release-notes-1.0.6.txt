@@ -1,0 +1,7 @@
+VELOCE AI 1.0.6
+
+Fixed the update button.
+
+Pressing Update now downloads the new setup through the app's own downloader. You get progress in the downloads panel, the file lands in your Downloads folder, and you run it from there. The installer will offer to close VELOCE while it installs.
+
+Before this, the setup was written to a temp folder and left locked by the app, so installing failed with "Another program is currently using this file" and nothing changed even though the download had finished.
